@@ -1,38 +1,111 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Show All Data</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DriveIt - Connecting...</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 16px;
+            font-family: -apple-system, system-ui, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 400px;
+            padding: 24px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loader {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid #2ea6ff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 0.8s linear infinite;
+            margin: 12px 0;
+        }
+
+        .error {
+            color: #e53e3e;
+            margin-top: 12px;
+        }
+    </style>
 </head>
 <body>
-  <h2>Request Information</h2>
-  <pre id="output"></pre>
+    <div class="container">
+        <div id="status">Connecting Google Drive...</div>
+        <div class="loader"></div>
+        <div id="error" class="error" style="display: none;"></div>
+    </div>
 
-  <script>
-    function toBase64Url(str) {
-        const bytes = new TextEncoder().encode(str);
-        let binary = '';
-        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-        const b64 = btoa(binary);
-        return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/,'');
-    }
-    const output = document.getElementById('output');
-    const url = window.location.href;
-    const searchParams = new URLSearchParams(window.location.search);
-    const params = Object.fromEntries(searchParams);
+    <script>
+    (function() {
+        const status = document.getElementById('status');
+        const error = document.getElementById('error');
 
-    const code = searchParams.get('code');
-    if (code) {
-        const safe = toBase64Url(code);
-        const tgUrl = 'https://t.me/Darkerbot/accounts?startapp=' + safe;
-        window.location.replace(tgUrl);
-    } else {
-      output.textContent = JSON.stringify({
-        full_url: url,
-        method: "GET (static file)",
-        query_parameters: params
-      }, null, 2);
-    }
-  </script>
+        // Convert authorization code to Telegram-friendly format
+        function toBase64Url(str) {
+            try {
+                const bytes = new TextEncoder().encode(str);
+                const binary = Array.from(bytes)
+                    .map(byte => String.fromCharCode(byte))
+                    .join('');
+                return btoa(binary)
+                    .replace(/\+/g, '-')
+                    .replace(/\//g, '_')
+                    .replace(/=+$/, '');
+            } catch (e) {
+                console.error('Encoding error:', e);
+                return null;
+            }
+        }
+
+        // Handle redirect
+        function handleRedirect() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const code = params.get('code');
+
+                if (!code) {
+                    throw new Error('No authorization code received');
+                }
+
+                const encoded = toBase64Url(code);
+                if (!encoded) {
+                    throw new Error('Failed to encode authorization code');
+                }
+
+                const telegramUrl = 'https://t.me/Darkerbot/accounts?startapp=' + encoded;
+                window.location.replace(telegramUrl);
+
+            } catch (e) {
+                console.error('Redirect error:', e);
+                status.style.display = 'none';
+                error.style.display = 'block';
+                error.textContent = 'Failed to connect: ' + e.message;
+            }
+        }
+
+        // Start redirect process
+        handleRedirect();
+    })();
+    </script>
 </body>
 </html>
