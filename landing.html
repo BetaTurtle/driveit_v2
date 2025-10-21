@@ -176,8 +176,10 @@
             appId: "1:224314386927:web:08bdead70144111af9ee1a"
         },
         auth: {
-            backend: "https://driveit-v.deno.dev/authenticate",
-            redirectUri: "https://junaidbabu.github.io/driveit_v2/redir.html",
+            // backend: "https://driveit-v.deno.dev/authenticate",
+            // redirectUri: "https://betaturtle.github.io/driveit_v2/redir.html",
+            backend: "http://127.0.0.1:3000/authenticate",
+            redirectUri: "https://betaturtle.github.io/driveit_v2/redir.html",
             clientId: "224314386927-kb90emu5vr086murg5ea0bmfod8tqlep.apps.googleusercontent.com"
         }
     };
@@ -270,11 +272,14 @@
     }
 
     async function authenticate(initData, googleCode) {
+        console.log("making api call");
         const userName = window.Telegram.WebApp.initDataUnsafe.user.first_name;
         UI.userName.textContent = userName;
         UI.setLoginState('loading');
         UI.setDriveState('checking');
-        
+        var gC = { code: googleCode, redirect_uri: CONFIG.auth.redirectUri };
+        console.log("googleCode");
+        console.log(gC);
         try {
             // Backend authentication
             const res = await fetch(CONFIG.auth.backend, {
@@ -287,6 +292,7 @@
             });
             
             const data = await res.json();
+            console.log(data);
             if (!res.ok) throw new Error(data.error || `Server error: ${res.status}`);
             if (!data.customToken) throw new Error('No auth token received');
 
@@ -294,6 +300,7 @@
             const fb = firebase.initializeApp(CONFIG.firebase);
             const { user } = await fb.auth().signInWithCustomToken(data.customToken);
             UI.setLoginState('done');
+            console.log("set login state to done");
             
             // Save minimal user data
             const doc = fb.firestore().collection('users').doc(user.uid);
@@ -301,6 +308,8 @@
                 telegram_id: window.Telegram.WebApp.initDataUnsafe.user.id,
                 last_login: firebase.firestore.FieldValue.serverTimestamp()
             };
+
+            
             
             if (data.google?.email) {
                 Object.assign(userData, {
@@ -314,7 +323,10 @@
                 });
             }
             
+            
             await doc.set(userData, { merge: true });
+
+            console.log("first set of saving done");
             
             // Check Drive connection
             const snapshot = await doc.get();
@@ -345,20 +357,14 @@
             e.preventDefault();
             window.open(buildAuthUrl(), '_blank');
         };
-        authenticate(tg.initData, decodeBase64Url(tg.initDataUnsafe.start_param));
+        var url;
+        url = "NC8wQVZHelIxRFpqNkdKUzFOSDVXc0NNbG1ZVHRFMDFTQmFxc3dOZ1YzMGI1bFNtMmJlZGFRMkFfMXVhWW9BLVN5QjVEU3VHQQ";
+        url = decodeBase64Url(url);
+        // url = decodeBase64Url(tg.initDataUnsafe.start_param)
+        
+        authenticate(tg.initData, url);
     }
     </script>
 
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1429840077890100"
-crossorigin="anonymous"></script>
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-5ZVXJQXPM3"></script>
-<script>
-window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-
-gtag('config', 'G-5ZVXJQXPM3');
-</script>
 </body>
 </html>

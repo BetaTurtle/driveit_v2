@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Hash Parameters</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        .url-display {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            word-wrap: break-word;
+            margin-bottom: 20px;
+        }
+        .parameter {
+            background: #e9e9e9;
+            padding: 5px 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Current URL:</h2>
+    <div class="url-display" id="fullUrl"></div>
+
+    <h2>Hash Parameters:</h2>
+    <div id="params"></div>
+
+    <script>
+        function displayUrlAndParams() {
+            // Display the full URL
+            const fullUrl = window.location.href;
+            document.getElementById('fullUrl').textContent = fullUrl;
+
+            // Get the hash without the # symbol
+            const hash = window.location.hash.substring(1);
+            const paramsDiv = document.getElementById('params');
+            paramsDiv.innerHTML = ''; // Clear existing content
+
+            if (hash) {
+                // Parse the hash parameters
+                const params = new URLSearchParams(hash);
+                
+                // Display each parameter
+                params.forEach((value, key) => {
+                    const paramElement = document.createElement('div');
+                    paramElement.className = 'parameter';
+                    paramElement.textContent = `${key}: ${value}`;
+                    paramsDiv.appendChild(paramElement);
+                });
+            } else {
+                paramsDiv.innerHTML = '<div class="parameter">No parameters found in URL hash</div>';
+            }
+        }
+
+        // Display initially
+        displayUrlAndParams();
+
+        // Update when hash changes
+        window.addEventListener('hashchange', displayUrlAndParams);
+    </script>
+</body>
+</html>
