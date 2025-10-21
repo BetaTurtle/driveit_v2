@@ -176,10 +176,10 @@
             appId: "1:224314386927:web:08bdead70144111af9ee1a"
         },
         auth: {
-            // backend: "https://driveit-v.deno.dev/authenticate",
-            // redirectUri: "https://betaturtle.github.io/driveit_v2/redir.html",
-            backend: "http://127.0.0.1:3000/authenticate",
+            backend: "https://driveit-v.deno.dev/authenticate",
             redirectUri: "https://betaturtle.github.io/driveit_v2/redir.html",
+            // backend: "http://127.0.0.1:3000/authenticate",
+            // redirectUri: "https://betaturtle.github.io/driveit_v2/redir.html",
             clientId: "224314386927-kb90emu5vr086murg5ea0bmfod8tqlep.apps.googleusercontent.com"
         }
     };
@@ -358,9 +358,9 @@
             window.open(buildAuthUrl(), '_blank');
         };
         var url;
-        url = "NC8wQVZHelIxRFpqNkdKUzFOSDVXc0NNbG1ZVHRFMDFTQmFxc3dOZ1YzMGI1bFNtMmJlZGFRMkFfMXVhWW9BLVN5QjVEU3VHQQ";
-        url = decodeBase64Url(url);
-        // url = decodeBase64Url(tg.initDataUnsafe.start_param)
+        // url = "NC8wQVZHelIxRFpqNkdKUzFOSDVXc0NNbG1ZVHRFMDFTQmFxc3dOZ1YzMGI1bFNtMmJlZGFRMkFfMXVhWW9BLVN5QjVEU3VHQQ";
+        // url = decodeBase64Url(url);
+        url = decodeBase64Url(tg.initDataUnsafe.start_param)
         
         authenticate(tg.initData, url);
     }
