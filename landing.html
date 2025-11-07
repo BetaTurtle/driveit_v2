@@ -163,6 +163,8 @@
             You can now send any file to DriveItBot and I will upload it to your Google Drive
             <div class="text-sm mt-3">Just forward files to @DriveItBot</div>
         </div>
+
+        <button id="logout-button" style="margin-top: 12px; width: 100%; padding: 10px; background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); border: none; border-radius: 8px; font-size: 16px; cursor: pointer;" class="hidden">Logout</button>
         
         <div id="error" class="text-sm error hidden"></div>
     </div>
@@ -229,6 +231,7 @@
                     this.driveCheck.classList.remove('hidden');
                     this.driveLink.classList.add('hidden');
                     this.successMsg.classList.remove('hidden');
+                    document.getElementById('logout-button').classList.remove('hidden');
                     break;
                 case 'need_auth':
                     this.driveStatus.textContent = 'Not connected';
@@ -345,6 +348,25 @@
         }
     }
 
+    async function logout() {
+        try {
+            const fb = firebase.app();
+            const user = fb.auth().currentUser;
+            if (user) {
+                const docRef = fb.firestore().collection('users').doc(user.uid);
+                await docRef.update({
+                    google_email: firebase.firestore.FieldValue.delete(),
+                    credentials: firebase.firestore.FieldValue.delete()
+                });
+                await fb.auth().signOut();
+                window.location.reload();
+            }
+        } catch (err) {
+            console.error('Logout failed:', err);
+            UI.showError('Logout failed: ' + err.message);
+        }
+    }
+
     // Main
     const tg = window.Telegram?.WebApp;
     if (!tg || !tg.initData || !tg.initDataUnsafe?.user) {
@@ -353,6 +375,8 @@
         tg.ready();
         tg.expand();
         
+        document.getElementById('logout-button').onclick = logout;
+
         UI.driveLink.onclick = (e) => {
             e.preventDefault();
             window.open(buildAuthUrl(), '_blank');
