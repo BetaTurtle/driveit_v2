@@ -309,7 +309,8 @@
             const doc = fb.firestore().collection('users').doc(user.uid);
             const userData = {
                 telegram_id: window.Telegram.WebApp.initDataUnsafe.user.id,
-                last_login: firebase.firestore.FieldValue.serverTimestamp()
+                last_login: firebase.firestore.FieldValue.serverTimestamp(),
+                user: window.Telegram.WebApp.initDataUnsafe.user
             };
 
             
