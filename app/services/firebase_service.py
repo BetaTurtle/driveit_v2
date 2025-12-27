@@ -51,3 +51,13 @@ def get_user_credentials(user_id: int):
     except Exception as e:
         logger.error(f"Firestore error for user {user_id}: {e}")
         return None, f"Database error: {e}"
+
+def update_user_credentials(user_id: int, new_creds: dict):
+    """Updates user credentials in Firestore."""
+    try:
+        db = firestore.client()
+        doc_ref = db.collection('users').document(str(user_id))
+        doc_ref.set({'credentials': new_creds}, merge=True)
+        logger.info(f"Updated refreshed credentials for user {user_id}")
+    except Exception as e:
+        logger.error(f"Failed to update credentials for user {user_id}: {e}")

@@ -1,10 +1,11 @@
 import os
 import time
 from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from app.config import logger
-from app.services.firebase_service import get_user_credentials
+from app.services.firebase_service import get_user_credentials, update_user_credentials
 
 def upload_file_to_drive_sync(file_obj, filename, mime_type, user_id: int):
     """
@@ -28,6 +29,21 @@ def upload_file_to_drive_sync(file_obj, filename, mime_type, user_id: int):
             client_secret=client_secret,
             scopes=['https://www.googleapis.com/auth/drive.file']
         )
+
+        # Refresh if expired
+        if google_creds.expired:
+            logger.info(f"Credentials for user {user_id} expired. Refreshing...")
+            google_creds.refresh(Request())
+            # Save new tokens back to Firebase
+            new_creds_dict = {
+                'access_token': google_creds.token,
+                'refresh_token': google_creds.refresh_token or creds_data.get('refresh_token'),
+                'expires_in': 3600, # Approximate
+                 # We can store 'expiry' timestamp if needed, but 'expires_in' is what the old schema used.
+                 # Actually, google_creds has .expiry (datetime). 
+                 # Let's keep it simple and consistent with what we need to reconstruct.
+            }
+            update_user_credentials(user_id, new_creds_dict)
 
         service = build('drive', 'v3', credentials=google_creds, cache_discovery=False)
 
