@@ -1,0 +1,55 @@
+
+name: DriveIt Bot
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  repository_dispatch:
+    types: [driveit-bot-event]
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60  
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+
+    - name: Set up Python
+      run: uv python install
+
+    - name: Start Bot
+      run: |
+        uv run start.py
+      env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          FIREBASE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EMAIL }}
+          FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          # update_id is passed implicitly via Telegram API or explicitly if we need to debug. 
+          # The new start.py relies on "update_id: None" + "ack at exit".
+          # So we don't strictly need to pass UPDATE_ID unless we want to manually force it.
+          # But let's keep it clean.
+    
+    - name: Repository Dispatch
+      uses: actions/github-script@v6
+      with:
+        # standard GITHUB_TOKEN might not have permission to dispatch to same repo depending on settings? 
+        # Usually need a PAT for recursive dispatch triggers.
+        github-token: ${{ secrets.PAT_TOKEN }} 
+        script: |
+          // We don't need to read /tmp/update_id anymore since the bot manages state with Telegram directly.
+          console.log("Dispatching next job cycle.");
+          await github.rest.repos.createDispatchEvent({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  event_type: "driveit-bot-event",
+                  client_payload: { timestamp: Date.now() }
+                });
