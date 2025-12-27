@@ -70,45 +70,22 @@ def init_firebase():
         logger.error(f"Failed to initialize Firebase: {e}")
 
 
-# In-memory cache for user credentials: {user_id: (creds_data, timestamp)}
-USER_CREDENTIALS_CACHE = {}
-CACHE_TTL = 300  # 5 minutes
-
-def upload_file_to_drive_sync(file_obj, filename, mime_type, user_id: int):
-    """
-    Uploads a file object to Google Drive.
-    This function is SYNCHRONOUS and blocking. It should be run in an executor.
-    """
     try:
-        current_time = time.time()
-        creds_data = None
+        # 1. Get user credentials from Firebase
+        db = firestore.client()
+        doc_ref = db.collection('users').document(str(user_id))
+        doc = doc_ref.get()
         
-        # 1. Check Cache
-        if user_id in USER_CREDENTIALS_CACHE:
-            cached_creds, timestamp = USER_CREDENTIALS_CACHE[user_id]
-            if current_time - timestamp < CACHE_TTL:
-                creds_data = cached_creds
-                # logger.info(f"Using cached credentials for user {user_id}") # Optional logging
-
-        # 2. Fetch from Firebase if not cached
-        if not creds_data:
-            db = firestore.client()
-            doc_ref = db.collection('users').document(str(user_id))
-            doc = doc_ref.get()
+        if not doc.exists:
+            logger.warning(f"No credentials found for user {user_id}")
+            return False, "You are not logged in. Please start the bot and log in via the Web App."
             
-            if not doc.exists:
-                logger.warning(f"No credentials found for user {user_id}")
-                return False, "You are not logged in. Please start the bot and log in via the Web App."
-                
-            data = doc.to_dict()
-            creds_data = data.get('credentials')
-            
-            if creds_data:
-                # Update Cache
-                USER_CREDENTIALS_CACHE[user_id] = (creds_data, current_time)
-        
+        data = doc.to_dict()
+        creds_data = data.get('credentials')
         if not creds_data:
              return False, "No Google Drive credentials found. Please link your account."
+        
+
 
         # 3. Build Google Credentials
         client_id = os.environ.get("GOOGLE_OAUTH_CLIENT_ID")
