@@ -4,23 +4,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Info & Auth TMA</title>
+    <title>DriveIt Bot</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
     <style>
+        :root {
+            /* Fallback variables if not provided by Telegram (e.g. testing in browser) */
+            --tg-theme-bg-color: #ffffff;
+            --tg-theme-text-color: #000000;
+            --tg-theme-hint-color: #888888;
+            --tg-theme-link-color: #3390ec;
+            --tg-theme-button-color: #3390ec;
+            --tg-theme-button-text-color: #ffffff;
+            --tg-theme-secondary-bg-color: #f0f0f0;
+            --tg-theme-section-header-text-color: #3390ec;
+        }
+
         body {
-            font-family: 'Inter', sans-serif;
-            color: var(--tg-theme-text-color, #000000);
-            background-color: var(--tg-theme-bg-color, #ffffff);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--tg-theme-bg-color);
+            color: var(--tg-theme-text-color);
+            transition: background-color 0.2s, color 0.2s;
         }
 
-        .info-container {
-            background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+        /* Container for "Cards" or Sections */
+        .theme-section {
+            background-color: var(--tg-theme-secondary-bg-color);
+            color: var(--tg-theme-text-color);
+            border-radius: 12px;
         }
 
+        .theme-button {
+            background-color: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+        }
+
+        .theme-link {
+            color: var(--tg-theme-link-color);
+        }
+
+        .theme-hint {
+            color: var(--tg-theme-hint-color);
+        }
+
+        .theme-border {
+            border-color: var(--tg-theme-bg-color);
+            /* Separator color */
+        }
+
+        /* Status Dots - Semantic colors need to be visible on both backgrounds. 
+           We use standard safety colors but maybe add a white border for contrast if needed?
+        */
         .status-dot {
             height: 10px;
             width: 10px;
@@ -30,84 +67,82 @@
         }
 
         .status-idle {
-            background-color: #9ca3af;
+            background-color: var(--tg-theme-hint-color);
         }
 
-        /* gray-400 */
         .status-authenticating {
             background-color: #fbbf24;
         }
 
-        /* amber-400 */
         .status-authenticated {
             background-color: #34d399;
         }
 
-        /* emerald-400 */
         .status-error {
             background-color: #f87171;
         }
-
-        /* red-400 */
     </style>
 </head>
 
-<body class="p-4">
+<body class="p-4 min-h-screen flex flex-col items-center">
 
-    <div class="max-w-md mx-auto rounded-lg shadow-md p-6 info-container">
-        <h1 class="text-2xl font-bold mb-6 text-center">DriveIt Bot</h1>
+    <div class="w-full max-w-md">
+        <h1 class="text-2xl font-bold mb-6 text-center" style="color: var(--tg-theme-text-color)">DriveIt Bot</h1>
 
         <!-- Primary Status Indicator -->
-        <div id="auth-status"
-            class="mb-5 text-center font-medium bg-white p-3 rounded-lg shadow-sm border border-gray-100">
+        <div id="auth-status" class="mb-5 text-center font-medium p-4 theme-section shadow-sm">
             <span id="auth-status-dot" class="status-dot status-idle"></span>
             <span id="auth-status-text" class="text-sm">Initializing...</span>
         </div>
 
         <!-- User Information Table -->
-        <div id="user-info" class="space-y-2 mb-6 hidden bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-            <h3 class="text-xs font-bold uppercase text-gray-400 mb-2 tracking-wide">Telegram User</h3>
+        <div id="user-info" class="mb-6 hidden theme-section p-4 shadow-sm">
+            <h3 class="text-xs font-bold uppercase mb-3 tracking-wide theme-hint">Telegram User</h3>
             <!-- Populated by JS -->
         </div>
 
         <!-- Drive Connection Status -->
-        <div id="drive-section" class="mb-4 pt-4 border-t border-gray-200 hidden">
-            <h3 class="text-xs font-bold uppercase text-gray-400 mb-4 tracking-wide">Google Drive</h3>
+        <div id="drive-section" class="mb-4 hidden">
+            <h3 class="text-xs font-bold uppercase mb-3 tracking-wide ml-2 theme-hint">Google Drive</h3>
 
-            <!-- Not Connected State -->
-            <div id="drive-connect-ui" class="hidden text-center py-2">
-                <p class="text-sm mb-4 text-gray-600">Link your Google Drive to enable file uploads.</p>
-                <a id="drive-link" href="#"
-                    class="inline-block bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold shadow-sm hover:bg-blue-700 transition duration-200">
-                    Connect Google Drive
-                </a>
-            </div>
+            <div class="theme-section p-6 shadow-sm text-center">
 
-            <!-- Connected State -->
-            <div id="drive-connected-ui" class="hidden">
-                <div class="flex items-center justify-center space-x-2 text-green-600 mb-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span class="font-medium">Connected</span>
-                </div>
-                <p id="drive-email" class="text-center text-sm text-gray-800 font-medium mb-4"></p>
-
-                <div class="bg-green-50 text-green-800 p-3 rounded-lg text-sm text-center border border-green-200 mb-4">
-                    Send files to <b>@DriveItBot</b> to upload!
+                <!-- Not Connected State -->
+                <div id="drive-connect-ui" class="hidden">
+                    <p class="text-sm mb-4">Link your Google Drive to enable file uploads.</p>
+                    <a id="drive-link" href="#"
+                        class="inline-block px-6 py-3 rounded-xl font-semibold shadow-sm transition opacity-90 hover:opacity-100 theme-button">
+                        Connect Google Drive
+                    </a>
                 </div>
 
-                <button id="logout-button"
-                    class="w-full text-center text-red-500 text-sm hover:text-red-700 hover:bg-red-50 py-2 rounded transition">
-                    Unlink Account
-                </button>
+                <!-- Connected State -->
+                <div id="drive-connected-ui" class="hidden">
+                    <div class="flex items-center justify-center space-x-2 mb-2" style="color: #34d399">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span class="font-bold text-lg">Connected</span>
+                    </div>
+                    <p id="drive-email" class="text-center text-sm font-medium mb-6 opacity-80"></p>
+
+                    <div class="p-3 rounded-lg text-sm text-center mb-6"
+                        style="background-color: rgba(52, 211, 153, 0.1); color: #34d399;">
+                        Send files to <b>@DriveItBot</b> to upload!
+                    </div>
+
+                    <button id="logout-button"
+                        class="w-full text-center text-sm py-2 rounded transition theme-hint hover:opacity-80 underline">
+                        Unlink Account
+                    </button>
+                </div>
             </div>
         </div>
 
-        <div id="error"
-            class="hidden mt-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm text-center border border-red-200"></div>
+        <div id="error" class="hidden mt-4 p-3 rounded-lg text-sm text-center"
+            style="background-color: rgba(248, 113, 113, 0.1); color: #f87171;"></div>
     </div>
 
     <script>
@@ -143,7 +178,7 @@
             },
 
             displayUser(user) {
-                this.userInfo.innerHTML = '<h3 class="text-xs font-bold uppercase text-gray-400 mb-2 tracking-wide">Telegram User</h3>';
+                this.userInfo.innerHTML = '<h3 class="text-xs font-bold uppercase mb-3 tracking-wide theme-hint">Telegram User</h3>';
                 const fields = [
                     // { label: 'Name', value: `${user.first_name} ${user.last_name || ''}` },
                     { label: 'ID', value: user.id },
@@ -151,10 +186,10 @@
                     // { label: 'Premium', value: user.is_premium ? 'Yes' : 'No' }
                 ];
 
-                fields.forEach(f => {
+                fields.forEach((f, index) => {
                     const row = document.createElement('div');
-                    row.className = 'flex justify-between text-sm py-1 border-b border-gray-50 last:border-0';
-                    row.innerHTML = `<span class="text-gray-500">${f.label}</span><span class="font-medium text-gray-800">${f.value}</span>`;
+                    row.className = `flex justify-between text-sm py-2 ${index < fields.length - 1 ? 'border-b theme-border' : ''}`;
+                    row.innerHTML = `<span class="theme-hint">${f.label}</span><span class="font-medium">${f.value}</span>`;
                     this.userInfo.appendChild(row);
                 });
                 this.userInfo.classList.remove('hidden');
@@ -289,6 +324,9 @@
         } else {
             tg.ready();
             tg.expand();
+
+            // Set header color for Android/iOS integration to match
+            tg.setHeaderColor?.(tg.themeParams.secondary_bg_color || tg.themeParams.bg_color || '#ffffff');
 
             // Display User Info Immediately
             UI.displayUser(tg.initDataUnsafe.user);
