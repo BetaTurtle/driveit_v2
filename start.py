@@ -34,7 +34,7 @@ logging.getLogger("googleapiclient.discovery_cache").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 # Configuration
-LIFESPAN = 600  # Run for 10 minutes then exit to let the next job pick up
+LIFESPAN = 3600  # Run for 1 hour then exit to let the next job pick up
 # Concurrency Controls
 GLOBAL_SEMAPHORE = asyncio.Semaphore(5)
 USER_LOCKS = defaultdict(asyncio.Lock)
@@ -340,11 +340,15 @@ async def main() -> NoReturn:
     
     async with Bot(token) as bot:
         logger.info("Listening for new messages...")
+        background_tasks = set()
         
         while True:
             # Check lifespan
             if time.time() - start_time > LIFESPAN:
-                logger.info("Lifespan reached. Performing final cleanup to Ack updates...")
+                logger.info("Lifespan reached. Waiting for pending uploads to finish...")
+                if background_tasks:
+                     await asyncio.gather(*background_tasks, return_exceptions=True)
+                logger.info("All tasks finished. Performing final cleanup to Ack updates...")
                 
                 # "Commit" the offset to Telegram so the next runner starts clean.
                 if update_id is not None:
@@ -369,7 +373,9 @@ async def main() -> NoReturn:
                     update_id = update.update_id + 1
                     # Spawn task for processing update so we don't block loop
                     # We use create_task to allow parallel processing (e.g. concurrent downloads)
-                    asyncio.create_task(process_update(bot, update))
+                    task = asyncio.create_task(process_update(bot, update))
+                    background_tasks.add(task)
+                    task.add_done_callback(background_tasks.discard)
 
             
             except NetworkError:
