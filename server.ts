@@ -185,12 +185,10 @@ async function createFirebaseCustomToken(uid: string): Promise<{ token?: string;
 // --- Main Request Handler ---
 async function handler(req: Request): Promise<Response> {
     const url = new URL(req.url);
-    const origin = req.headers.get("Origin");
     const headers = new Headers({
-        "Access-Control-Allow-Origin": origin || "*",
+        "Access-Control-Allow-Origin": "*", // Be more specific in production!
         "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Headers": "Content-Type",
     });
 
     // Handle CORS preflight requests
@@ -226,7 +224,7 @@ async function handler(req: Request): Promise<Response> {
         console.warn("Failed to parse request body:", error);
         return new Response(JSON.stringify({ error: `Bad Request: ${error.message}` }), {
             status: 400,
-            headers: { ...headers, "Content-Type": "application/json", "Access-Control-Allow-Origin": origin || "*" },
+            headers: { ...headers, "Content-Type": "application/json" },
         });
     }
 
@@ -236,7 +234,7 @@ async function handler(req: Request): Promise<Response> {
         console.warn("Telegram initData validation failed.", validationResult.error);
         return new Response(JSON.stringify({ error: `Unauthorized: ${validationResult.error || 'Invalid Telegram data.'}` }), {
             status: 401,
-            headers: { ...headers, "Content-Type": "application/json", "Access-Control-Allow-Origin": origin || "*" },
+            headers: { ...headers, "Content-Type": "application/json" },
         });
     }
 
@@ -336,3 +334,5 @@ try {
 } catch (error: any) {
     console.error("Failed to start server:", error.message);
 }
+
+
