@@ -69,27 +69,48 @@ def init_firebase():
     except Exception as e:
         logger.error(f"Failed to initialize Firebase: {e}")
 
+
+# In-memory cache for user credentials: {user_id: (creds_data, timestamp)}
+USER_CREDENTIALS_CACHE = {}
+CACHE_TTL = 300  # 5 minutes
+
 def upload_file_to_drive_sync(file_obj, filename, mime_type, user_id: int):
     """
     Uploads a file object to Google Drive.
     This function is SYNCHRONOUS and blocking. It should be run in an executor.
     """
     try:
-        # 1. Get user credentials from Firebase
-        db = firestore.client()
-        doc_ref = db.collection('users').document(str(user_id))
-        doc = doc_ref.get()
+        current_time = time.time()
+        creds_data = None
         
-        if not doc.exists:
-            logger.warning(f"No credentials found for user {user_id}")
-            return False, "You are not logged in. Please start the bot and log in via the Web App."
+        # 1. Check Cache
+        if user_id in USER_CREDENTIALS_CACHE:
+            cached_creds, timestamp = USER_CREDENTIALS_CACHE[user_id]
+            if current_time - timestamp < CACHE_TTL:
+                creds_data = cached_creds
+                # logger.info(f"Using cached credentials for user {user_id}") # Optional logging
+
+        # 2. Fetch from Firebase if not cached
+        if not creds_data:
+            db = firestore.client()
+            doc_ref = db.collection('users').document(str(user_id))
+            doc = doc_ref.get()
             
-        data = doc.to_dict()
-        creds_data = data.get('credentials')
+            if not doc.exists:
+                logger.warning(f"No credentials found for user {user_id}")
+                return False, "You are not logged in. Please start the bot and log in via the Web App."
+                
+            data = doc.to_dict()
+            creds_data = data.get('credentials')
+            
+            if creds_data:
+                # Update Cache
+                USER_CREDENTIALS_CACHE[user_id] = (creds_data, current_time)
+        
         if not creds_data:
              return False, "No Google Drive credentials found. Please link your account."
 
-        # 2. Build Google Credentials
+        # 3. Build Google Credentials
         client_id = os.environ.get("GOOGLE_OAUTH_CLIENT_ID")
         client_secret = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET")
         
@@ -102,12 +123,12 @@ def upload_file_to_drive_sync(file_obj, filename, mime_type, user_id: int):
             scopes=['https://www.googleapis.com/auth/drive.file']
         )
 
-        # 3. Build Drive Service
+        # 4. Build Drive Service
         # Note: cache_discovery=False prevents some pickling issues in threads/processes sometimes, 
         # specifically around the FileCache.
         service = build('drive', 'v3', credentials=google_creds, cache_discovery=False)
 
-        # 4. Upload File
+        # 5. Upload File
         file_metadata = {'name': filename}
         media = MediaIoBaseUpload(file_obj, mimetype=mime_type, resumable=True)
         
@@ -115,6 +136,7 @@ def upload_file_to_drive_sync(file_obj, filename, mime_type, user_id: int):
         
         logger.info(f"File uploaded ID: {file.get('id')}")
         return True, file.get('webViewLink')
+
 
     except Exception as e:
         logger.error(f"Error in upload_file_to_drive: {e}")
