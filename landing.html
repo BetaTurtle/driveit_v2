@@ -21,73 +21,93 @@
             background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
         }
 
-        .label {
-            color: var(--tg-theme-hint-color, #888888);
-        }
-
         .status-dot {
             height: 10px;
             width: 10px;
             border-radius: 50%;
             display: inline-block;
-            margin-right: 5px;
-        }
-
-        .status-authenticating {
-            background-color: #fbbf24;
-            /* amber-400 */
-        }
-
-        .status-authenticated {
-            background-color: #34d399;
-            /* emerald-400 */
-        }
-
-        .status-error {
-            background-color: #f87171;
-            /* red-400 */
+            margin-right: 6px;
         }
 
         .status-idle {
             background-color: #9ca3af;
-            /* gray-400 */
         }
+
+        /* gray-400 */
+        .status-authenticating {
+            background-color: #fbbf24;
+        }
+
+        /* amber-400 */
+        .status-authenticated {
+            background-color: #34d399;
+        }
+
+        /* emerald-400 */
+        .status-error {
+            background-color: #f87171;
+        }
+
+        /* red-400 */
     </style>
 </head>
 
 <body class="p-4">
 
     <div class="max-w-md mx-auto rounded-lg shadow-md p-6 info-container">
-        <h1 class="text-2xl font-bold mb-4 text-center">User Information & Auth</h1>
+        <h1 class="text-2xl font-bold mb-6 text-center">DriveIt Bot</h1>
 
-        <div id="auth-status" class="mb-2 text-center font-medium">
+        <!-- Primary Status Indicator -->
+        <div id="auth-status"
+            class="mb-5 text-center font-medium bg-white p-3 rounded-lg shadow-sm border border-gray-100">
             <span id="auth-status-dot" class="status-dot status-idle"></span>
-            <span id="auth-status-text">Checking Telegram environment...</span>
+            <span id="auth-status-text" class="text-sm">Initializing...</span>
         </div>
 
-        <div id="drive-connected"
-            class="mb-4 hidden text-center text-sm p-2 rounded bg-green-50 text-green-700 border border-green-200">
+        <!-- User Information Table -->
+        <div id="user-info" class="space-y-2 mb-6 hidden bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+            <h3 class="text-xs font-bold uppercase text-gray-400 mb-2 tracking-wide">Telegram User</h3>
+            <!-- Populated by JS -->
         </div>
 
-        <div id="user-name" class="hidden"></div>
-        <div id="login-status" class="hidden"></div>
-        <div id="login-loader" class="hidden"></div>
-        <div id="login-check" class="hidden"></div>
-        <div id="drive-status" class="hidden"></div>
-        <div id="drive-loader" class="hidden"></div>
-        <div id="drive-check" class="hidden"></div>
-        <a id="drive-link" href="#" class="hidden">Connect Drive</a>
+        <!-- Drive Connection Status -->
+        <div id="drive-section" class="mb-4 pt-4 border-t border-gray-200 hidden">
+            <h3 class="text-xs font-bold uppercase text-gray-400 mb-4 tracking-wide">Google Drive</h3>
 
-        <div id="success-msg" class="success-message hidden">
-            You can now send any file to DriveItBot and I will upload it to your Google Drive
-            <div class="text-sm mt-3">Just forward files to @DriveItBot</div>
+            <!-- Not Connected State -->
+            <div id="drive-connect-ui" class="hidden text-center py-2">
+                <p class="text-sm mb-4 text-gray-600">Link your Google Drive to enable file uploads.</p>
+                <a id="drive-link" href="#"
+                    class="inline-block bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold shadow-sm hover:bg-blue-700 transition duration-200">
+                    Connect Google Drive
+                </a>
+            </div>
+
+            <!-- Connected State -->
+            <div id="drive-connected-ui" class="hidden">
+                <div class="flex items-center justify-center space-x-2 text-green-600 mb-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span class="font-medium">Connected</span>
+                </div>
+                <p id="drive-email" class="text-center text-sm text-gray-800 font-medium mb-4"></p>
+
+                <div class="bg-green-50 text-green-800 p-3 rounded-lg text-sm text-center border border-green-200 mb-4">
+                    Send files to <b>@DriveItBot</b> to upload!
+                </div>
+
+                <button id="logout-button"
+                    class="w-full text-center text-red-500 text-sm hover:text-red-700 hover:bg-red-50 py-2 rounded transition">
+                    Unlink Account
+                </button>
+            </div>
         </div>
 
-        <button id="logout-button"
-            style="margin-top: 12px; width: 100%; padding: 10px; background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); border: none; border-radius: 8px; font-size: 16px; cursor: pointer;"
-            class="hidden">Logout</button>
-
-        <div id="error" class="text-sm error hidden"></div>
+        <div id="error"
+            class="hidden mt-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm text-center border border-red-200"></div>
     </div>
 
     <script>
@@ -101,73 +121,64 @@
             auth: {
                 backend: "https://driveit-v.deno.dev/authenticate",
                 redirectUri: "https://betaturtle.github.io/driveit_v2/redir.html",
-                // backend: "http://127.0.0.1:3000/authenticate",
-                // redirectUri: "https://betaturtle.github.io/driveit_v2/redir.html",
                 clientId: "224314386927-kb90emu5vr086murg5ea0bmfod8tqlep.apps.googleusercontent.com"
             }
         };
 
         const UI = {
-            userName: document.getElementById('user-name'),
-            loginStatus: document.getElementById('login-status'),
-            loginLoader: document.getElementById('login-loader'),
-            loginCheck: document.getElementById('login-check'),
-            driveStatus: document.getElementById('drive-status'),
-            driveLoader: document.getElementById('drive-loader'),
-            driveCheck: document.getElementById('drive-check'),
+            statusDot: document.getElementById('auth-status-dot'),
+            statusText: document.getElementById('auth-status-text'),
+            userInfo: document.getElementById('user-info'),
+            driveSection: document.getElementById('drive-section'),
+            driveConnectBox: document.getElementById('drive-connect-ui'),
+            driveConnectedBox: document.getElementById('drive-connected-ui'),
+            driveEmail: document.getElementById('drive-email'),
             driveLink: document.getElementById('drive-link'),
-            successMsg: document.getElementById('success-msg'),
-            error: document.getElementById('error'),
+            errorBox: document.getElementById('error'),
 
-            setLoginState(state) {
-                switch (state) {
-                    case 'loading':
-                        this.loginStatus.textContent = 'Logging in...';
-                        this.loginLoader.classList.remove('hidden');
-                        this.loginCheck.classList.add('hidden');
-                        break;
-                    case 'done':
-                        this.loginStatus.textContent = 'Logged in';
-                        this.loginLoader.classList.add('hidden');
-                        this.loginCheck.classList.remove('hidden');
-                        break;
-                    case 'error':
-                        this.loginStatus.textContent = 'Login failed';
-                        this.loginLoader.classList.add('hidden');
-                        this.loginCheck.classList.add('hidden');
-                }
+            updateStatus(state, text) {
+                // state: 'idle', 'authenticating', 'authenticated', 'error'
+                this.statusDot.className = `status-dot status-${state}`;
+                this.statusText.textContent = text;
             },
 
-            setDriveState(state, email = null) {
-                switch (state) {
-                    case 'checking':
-                        this.driveStatus.textContent = 'Checking Google Drive connection...';
-                        this.driveLoader.classList.remove('hidden');
-                        this.driveCheck.classList.add('hidden');
-                        this.driveLink.classList.add('hidden');
-                        break;
-                    case 'connected':
-                        this.driveStatus.textContent = `Connected to ${email}`;
-                        this.driveLoader.classList.add('hidden');
-                        this.driveCheck.classList.remove('hidden');
-                        this.driveLink.classList.add('hidden');
-                        this.successMsg.classList.remove('hidden');
-                        document.getElementById('logout-button').classList.remove('hidden');
-                        break;
-                    case 'need_auth':
-                        this.driveStatus.textContent = 'Not connected';
-                        this.driveLoader.classList.add('hidden');
-                        this.driveCheck.classList.add('hidden');
-                        this.driveLink.classList.remove('hidden');
-                        break;
+            displayUser(user) {
+                this.userInfo.innerHTML = '<h3 class="text-xs font-bold uppercase text-gray-400 mb-2 tracking-wide">Telegram User</h3>';
+                const fields = [
+                    // { label: 'Name', value: `${user.first_name} ${user.last_name || ''}` },
+                    { label: 'ID', value: user.id },
+                    { label: 'Username', value: user.username ? `@${user.username}` : 'N/A' },
+                    // { label: 'Premium', value: user.is_premium ? 'Yes' : 'No' }
+                ];
+
+                fields.forEach(f => {
+                    const row = document.createElement('div');
+                    row.className = 'flex justify-between text-sm py-1 border-b border-gray-50 last:border-0';
+                    row.innerHTML = `<span class="text-gray-500">${f.label}</span><span class="font-medium text-gray-800">${f.value}</span>`;
+                    this.userInfo.appendChild(row);
+                });
+                this.userInfo.classList.remove('hidden');
+            },
+
+            showDriveSection(connected, email = null) {
+                this.driveSection.classList.remove('hidden');
+                if (connected) {
+                    this.driveConnectBox.classList.add('hidden');
+                    this.driveConnectedBox.classList.remove('hidden');
+                    this.driveEmail.textContent = email;
+                    this.updateStatus('authenticated', 'Start Uploading!');
+                } else {
+                    this.driveConnectBox.classList.remove('hidden');
+                    this.driveConnectedBox.classList.add('hidden');
+                    this.driveLink.href = buildAuthUrl();
+                    this.updateStatus('authenticated', 'Action Required');
                 }
             },
 
             showError(msg) {
-                this.error.textContent = msg;
-                this.error.classList.remove('hidden');
-                this.setLoginState('error');
-                this.successMsg.classList.add('hidden');
+                this.updateStatus('error', 'Error');
+                this.errorBox.textContent = msg;
+                this.errorBox.classList.remove('hidden');
             }
         };
 
@@ -196,14 +207,8 @@
         }
 
         async function authenticate(initData, googleCode) {
-            console.log("making api call");
-            const userName = window.Telegram.WebApp.initDataUnsafe.user.first_name;
-            UI.userName.textContent = userName;
-            UI.setLoginState('loading');
-            UI.setDriveState('checking');
-            var gC = { code: googleCode, redirect_uri: CONFIG.auth.redirectUri };
-            console.log("googleCode");
-            console.log(gC);
+            UI.updateStatus('authenticating', 'Verifying...');
+
             try {
                 // Backend authentication
                 const res = await fetch(CONFIG.auth.backend, {
@@ -216,18 +221,16 @@
                 });
 
                 const data = await res.json();
-                console.log(data);
                 if (!res.ok) throw new Error(data.error || `Server error: ${res.status}`);
                 if (!data.customToken) throw new Error('No auth token received');
 
                 // Firebase auth
                 const fb = firebase.initializeApp(CONFIG.firebase);
-                const { user } = await fb.auth().signInWithCustomToken(data.customToken);
-                UI.setLoginState('done');
-                console.log("set login state to done");
+                await fb.auth().signInWithCustomToken(data.customToken);
+                const user = fb.auth().currentUser;
 
-                // Save minimal user data
-                const doc = fb.firestore().collection('users').doc(user.uid);
+                // Save user data
+                const docRef = fb.firestore().collection('users').doc(user.uid);
                 const userData = {
                     telegram_id: window.Telegram.WebApp.initDataUnsafe.user.id,
                     last_login: firebase.firestore.FieldValue.serverTimestamp(),
@@ -246,20 +249,12 @@
                     });
                 }
 
-                await doc.set(userData, { merge: true });
+                await docRef.set(userData, { merge: true });
 
-                console.log("first set of saving done");
-
-                // Check Drive connection
-                const snapshot = await doc.get();
+                // Check Drive status
+                const snapshot = await docRef.get();
                 const email = snapshot.data()?.google_email;
-
-                if (email) {
-                    UI.setDriveState('connected', email);
-                } else {
-                    UI.setDriveState('need_auth');
-                    UI.driveLink.href = buildAuthUrl();
-                }
+                UI.showDriveSection(!!email, email);
 
             } catch (err) {
                 console.error(err);
@@ -268,6 +263,7 @@
         }
 
         async function logout() {
+            if (!confirm('Are you sure you want to unlink your Google Drive?')) return;
             try {
                 const fb = firebase.app();
                 const user = fb.auth().currentUser;
@@ -281,7 +277,6 @@
                     window.location.reload();
                 }
             } catch (err) {
-                console.error('Logout failed:', err);
                 UI.showError('Logout failed: ' + err.message);
             }
         }
@@ -289,16 +284,19 @@
         // Main
         const tg = window.Telegram?.WebApp;
         if (!tg || !tg.initData || !tg.initDataUnsafe?.user) {
-            UI.showError('Not running in Telegram');
+            UI.showError('This app must be opened from Telegram.');
+            UI.updateStatus('error', 'Environment Error');
         } else {
             tg.ready();
             tg.expand();
 
-            document.getElementById('logout-button').onclick = logout;
+            // Display User Info Immediately
+            UI.displayUser(tg.initDataUnsafe.user);
 
+            document.getElementById('logout-button').onclick = logout;
             UI.driveLink.onclick = (e) => {
                 e.preventDefault();
-                window.open(buildAuthUrl(), '_blank');
+                tg.openLink(buildAuthUrl());
             };
 
             const startParam = tg.initDataUnsafe.start_param;
@@ -306,18 +304,6 @@
 
             authenticate(tg.initData, googleCode);
         }
-    </script>
-
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1429840077890100"
-        crossorigin="anonymous"></script>
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-5ZVXJQXPM3"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag() { dataLayer.push(arguments); }
-        gtag('js', new Date());
-
-        gtag('config', 'G-5ZVXJQXPM3');
     </script>
 </body>
 
