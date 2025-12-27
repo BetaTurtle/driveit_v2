@@ -70,6 +70,11 @@ def init_firebase():
         logger.error(f"Failed to initialize Firebase: {e}")
 
 
+def upload_file_to_drive_sync(file_obj, filename, mime_type, user_id: int):
+    """
+    Uploads a file object to Google Drive.
+    This function is SYNCHRONOUS and blocking. It should be run in an executor.
+    """
     try:
         # 1. Get user credentials from Firebase
         db = firestore.client()
@@ -84,8 +89,6 @@ def init_firebase():
         creds_data = data.get('credentials')
         if not creds_data:
              return False, "No Google Drive credentials found. Please link your account."
-        
-
 
         # 3. Build Google Credentials
         client_id = os.environ.get("GOOGLE_OAUTH_CLIENT_ID")
