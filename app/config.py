@@ -20,8 +20,8 @@ logger = logging.getLogger("driveit_bot")
 LIFESPAN = 3600  # 1 Hour
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 GOOGLE_SHEETS_TOKEN = os.environ.get("GOOGLE_SHEETS_TOKEN")
-# Defaulting to a placeholder ID if not in env
-GOOGLE_SHEET_ID = os.environ.get("GOOGLE_SHEET_ID", "1XmYmpHfsa3TLgsEM9qIqR_NkpVxX6iKO6Kkec0uzOzk")
+# Defaulting to a placeholder ID if not in env or if env value is empty
+GOOGLE_SHEET_ID = os.environ.get("GOOGLE_SHEET_ID") or "1XmYmpHfsa3TLgsEM9qIqR_NkpVxX6iKO6Kkec0uzOzk"
 
 # Concurrency Controls
 GLOBAL_SEMAPHORE = asyncio.Semaphore(5)
