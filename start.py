@@ -34,7 +34,7 @@ logging.getLogger("googleapiclient.discovery_cache").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 # Configuration
-LIFESPAN = 3600  # Run for 1 hour then exit to let the next job pick up
+LIFESPAN = 600  # Run for 10 minutes then exit to let the next job pick up
 # Concurrency Controls
 GLOBAL_SEMAPHORE = asyncio.Semaphore(5)
 USER_LOCKS = defaultdict(asyncio.Lock)
