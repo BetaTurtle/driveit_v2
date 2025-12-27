@@ -11,10 +11,8 @@ async def handle_upload_task(bot: Bot, chat_id: int, user_id: int, message_id: i
     Background task to handle the upload process with queueing.
     """
     try:
-        # 1. Wait for User Lock (Per-user queue)
         async with USER_LOCKS[user_id]:
             
-            # 2. Wait for Global Semaphore (Global concurrency limit)
             await bot.edit_message_text(
                 chat_id=chat_id, 
                 message_id=status_msg_id, 
@@ -22,7 +20,6 @@ async def handle_upload_task(bot: Bot, chat_id: int, user_id: int, message_id: i
             )
             
             async with GLOBAL_SEMAPHORE:
-                # 3. Uploading
                 await bot.edit_message_text(
                     chat_id=chat_id, 
                     message_id=status_msg_id, 
@@ -42,7 +39,6 @@ async def handle_upload_task(bot: Bot, chat_id: int, user_id: int, message_id: i
                     user_id
                 )
                 
-        # 4. Post-Upload (Outside locks)
         if success:
             try:
                 await bot.delete_message(chat_id=chat_id, message_id=status_msg_id)
@@ -134,7 +130,6 @@ async def process_update(bot: Bot, update: Update):
         return
 
     if file_to_download:
-        # 1. Send Queued Message
         status_msg = await bot.send_message(
             chat_id=chat_id, 
             text="📥 Downloading to bot...", 
@@ -144,7 +139,6 @@ async def process_update(bot: Bot, update: Update):
         try:
             f_byte_array = await file_to_download.download_as_bytearray()
             
-            # 2. Spawn Background Task
             asyncio.create_task(
                 handle_upload_task(
                     bot, 

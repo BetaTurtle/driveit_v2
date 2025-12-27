@@ -12,13 +12,11 @@ def upload_file_to_drive_sync(file_obj, filename, mime_type, user_id: int):
     This function is SYNCHRONOUS and blocking. It should be run in an executor.
     """
     try:
-        # 1. Get Credentials
         creds_data, error_msg = get_user_credentials(user_id)
         if error_msg:
             logger.warning(f"Credential error for user {user_id}: {error_msg}")
             return False, error_msg
 
-        # 2. Build Google Credentials
         client_id = os.environ.get("GOOGLE_OAUTH_CLIENT_ID")
         client_secret = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET")
         
@@ -31,16 +29,13 @@ def upload_file_to_drive_sync(file_obj, filename, mime_type, user_id: int):
             scopes=['https://www.googleapis.com/auth/drive.file']
         )
 
-        # 3. Build Drive Service
         service = build('drive', 'v3', credentials=google_creds, cache_discovery=False)
 
-        # 4. Upload File
         file_metadata = {'name': filename}
         media = MediaIoBaseUpload(file_obj, mimetype=mime_type, resumable=True)
         
         file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
         
-        logger.info(f"File uploaded ID: {file.get('id')}")
         return True, file.get('webViewLink')
 
     except Exception as e:
