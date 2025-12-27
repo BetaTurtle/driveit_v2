@@ -139,8 +139,13 @@ def upload_file_to_drive_sync(file_obj, filename, mime_type, user_id: int):
 
 
     except Exception as e:
+        error_str = str(e)
+        if "insufficient authentication scopes" in error_str or "Insufficient Permission" in error_str:
+            logger.warning(f"User {user_id} has insufficient permissions: {error_str}")
+            return False, "⚠️ Permission Error: Your Google Drive connection is missing required access. Please use the Web App to Unlink and then Connect your account again."
+            
         logger.error(f"Error in upload_file_to_drive: {e}")
-        return False, str(e)
+        return False, error_str
 
 
 async def handle_upload_task(bot: Bot, chat_id: int, user_id: int, message_id: int, file_data: bytes, filename: str, mime_type: str, status_msg_id: int):
