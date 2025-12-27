@@ -28,7 +28,7 @@ jobs:
 
     - name: Start Bot
       run: |
-        uv run start.py
+        uv run python -m app.main
       env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           FIREBASE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EMAIL }}
