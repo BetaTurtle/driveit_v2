@@ -15,7 +15,6 @@ def init_firebase():
             cred_dict = {
                 "type": "service_account",
                 "project_id": os.environ.get("FIREBASE_PROJECT_ID"),
-                "private_key_id": "some_id_optional_usually", 
                 "private_key": private_key,
                 "client_email": os.environ.get("FIREBASE_SERVICE_ACCOUNT_EMAIL"),
                 "token_uri": "https://oauth2.googleapis.com/token",

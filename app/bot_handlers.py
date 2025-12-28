@@ -71,6 +71,38 @@ async def handle_upload_task(bot: Bot, chat_id: int, user_id: int, message_id: i
         except:
             pass
 
+def extract_file_info(message):
+    """Extract file object, filename, and mime_type from a message."""
+    file_to_download = None
+    filename = "unknown_file"
+    mime_type = "application/octet-stream"
+
+    if message.document:
+        doc = message.document
+        file_to_download = doc
+        filename = doc.file_name or "document"
+        mime_type = doc.mime_type or mime_type
+        
+    elif message.photo:
+        photo = message.photo[-1] # Largest size
+        file_to_download = photo
+        filename = f"photo_{int(time.time())}.jpg"
+        mime_type = "image/jpeg"
+        
+    elif message.video:
+        video = message.video
+        file_to_download = video
+        filename = video.file_name or f"video_{int(time.time())}.mp4"
+        mime_type = video.mime_type or mime_type
+
+    elif message.audio:
+        audio = message.audio
+        file_to_download = audio
+        filename = audio.file_name or f"audio_{int(time.time())}.mp3"
+        mime_type = audio.mime_type or mime_type
+    
+    return file_to_download, filename, mime_type
+
 async def process_update(bot: Bot, update: Update):
     """Process a single update."""
     if not update.message:
@@ -88,35 +120,14 @@ async def process_update(bot: Bot, update: Update):
         return
 
     # Handle Files
+    file_info = extract_file_info(update.message)
+    file_obj, filename, mime_type = file_info
+
     file_to_download = None
-    filename = "unknown_file"
-    mime_type = "application/octet-stream"
     
     try:
-        if update.message.document:
-            doc = update.message.document
-            file_to_download = await doc.get_file()
-            filename = doc.file_name or "document"
-            mime_type = doc.mime_type or mime_type
-            
-        elif update.message.photo:
-            photo = update.message.photo[-1] # Largest size
-            file_to_download = await photo.get_file()
-            filename = f"photo_{int(time.time())}.jpg"
-            mime_type = "image/jpeg"
-            
-        elif update.message.video:
-            video = update.message.video
-            file_to_download = await video.get_file()
-            filename = video.file_name or f"video_{int(time.time())}.mp4"
-            mime_type = video.mime_type or mime_type
-
-        elif update.message.audio:
-            audio = update.message.audio
-            file_to_download = await audio.get_file()
-            filename = audio.file_name or f"audio_{int(time.time())}.mp3"
-            mime_type = audio.mime_type or mime_type
-            
+        if file_obj:
+            file_to_download = await file_obj.get_file()
     except Exception as e:
         error_msg = str(e)
         if "File is too big" in error_msg:
@@ -128,6 +139,8 @@ async def process_update(bot: Bot, update: Update):
              return
         logger.error(f"Error in get_file: {e}")
         return
+            
+
 
     if file_to_download:
         status_msg = await bot.send_message(
