@@ -115,7 +115,7 @@ async def process_update(bot: Bot, update: Update):
     if update.message.text and update.message.text.startswith("/start"):
         await bot.send_message(
             chat_id=chat_id,
-            text="Welcome! Send or forward me any file, and I will upload it to your Google Drive."
+            text="Welcome! Send or forward me any file, and I will upload it to your Google Drive.\n\nTo connect your account: t.me/DriveItBot/manage"
         )
         return
 
@@ -181,5 +181,5 @@ async def process_update(bot: Bot, update: Update):
     if update.message.text:
         await bot.send_message(
             chat_id=chat_id,
-            text="Forward a file to upload to Google Drive."
+            text="Forward a file to upload to Google Drive.\n\nTo manage your account: t.me/DriveItBot/manage"
         )
