@@ -241,9 +241,44 @@
             return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
         }
 
+        // Initialize Firebase globally
+        const fbApp = firebase.initializeApp(CONFIG.firebase);
+        const fbAuth = fbApp.auth();
+        const fbDb = fbApp.firestore();
+
         async function authenticate(initData, googleCode) {
             UI.updateStatus('authenticating', 'Verifying...');
 
+            // If we have a Google Code, we MUST authenticate via backend to exchange it
+            if (googleCode) {
+                return await performBackendAuth(initData, googleCode);
+            }
+
+            // Check for existing session
+            const currentUser = await new Promise(resolve => {
+                const unsubscribe = fbAuth.onAuthStateChanged(user => {
+                    unsubscribe();
+                    resolve(user);
+                });
+            });
+
+            const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+
+            // Check if logged in and UIDs match
+            if (currentUser && tgUser && currentUser.uid === String(tgUser.id)) {
+                // Session matches, restore UI immediately
+                console.log("Restoring session for", currentUser.uid);
+                await loadUserDriveStatus(currentUser.uid);
+
+                // Update last_login in background 
+                updateLastLogin(currentUser.uid);
+            } else {
+                // No matching session, perform full backend auth
+                await performBackendAuth(initData);
+            }
+        }
+
+        async function performBackendAuth(initData, googleCode) {
             try {
                 // Backend authentication
                 const res = await fetch(CONFIG.auth.backend, {
@@ -259,13 +294,11 @@
                 if (!res.ok) throw new Error(data.error || `Server error: ${res.status}`);
                 if (!data.customToken) throw new Error('No auth token received');
 
-                // Firebase auth
-                const fb = firebase.initializeApp(CONFIG.firebase);
-                await fb.auth().signInWithCustomToken(data.customToken);
-                const user = fb.auth().currentUser;
+                // Sign in with new token
+                await fbAuth.signInWithCustomToken(data.customToken);
+                const user = fbAuth.currentUser;
 
                 // Save user data
-                const docRef = fb.firestore().collection('users').doc(user.uid);
                 const userData = {
                     telegram_id: window.Telegram.WebApp.initDataUnsafe.user.id,
                     last_login: firebase.firestore.FieldValue.serverTimestamp(),
@@ -284,16 +317,37 @@
                     });
                 }
 
-                await docRef.set(userData, { merge: true });
+                await fbDb.collection('users').doc(user.uid).set(userData, { merge: true });
 
-                // Check Drive status
-                const snapshot = await docRef.get();
-                const email = snapshot.data()?.google_email;
-                UI.showDriveSection(!!email, email);
+                // Update UI
+                await loadUserDriveStatus(user.uid);
 
             } catch (err) {
                 console.error(err);
                 UI.showError(err.message);
+            }
+        }
+
+        async function loadUserDriveStatus(uid) {
+            try {
+                const docRef = fbDb.collection('users').doc(uid);
+                const snapshot = await docRef.get();
+                const email = snapshot.data()?.google_email;
+                UI.showDriveSection(!!email, email);
+            } catch (err) {
+                console.error("Failed to load user status:", err);
+                UI.showError("Failed to load user status");
+            }
+        }
+
+        async function updateLastLogin(uid) {
+            try {
+                await fbDb.collection('users').doc(uid).set({
+                    last_login: firebase.firestore.FieldValue.serverTimestamp(),
+                    user: window.Telegram.WebApp.initDataUnsafe.user
+                }, { merge: true });
+            } catch (e) {
+                console.warn("Background last_login update failed:", e);
             }
         }
 
