@@ -17,7 +17,7 @@ logging.getLogger("googleapiclient.discovery_cache").setLevel(logging.ERROR)
 logger = logging.getLogger("driveit_bot")
 
 # Constants
-LIFESPAN = 3600  # 1 Hour
+LIFESPAN = 18000  # 5 Hours
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 GOOGLE_SHEETS_TOKEN = os.environ.get("GOOGLE_SHEETS_TOKEN")
 # Defaulting to a placeholder ID if not in env or if env value is empty
