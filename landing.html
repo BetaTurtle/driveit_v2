@@ -322,7 +322,7 @@
             style="background-color: rgba(248, 113, 113, 0.1); color: #f87171;"></div>
 
         <div class="mt-8 text-center">
-            <span class="text-xs theme-hint opacity-50">v1.1.5</span>
+            <span class="text-xs theme-hint opacity-50">v1.1.6</span>
         </div>
     </div>
 
@@ -691,6 +691,7 @@
             UI.driveLink.onclick = (e) => {
                 e.preventDefault();
                 tg.openLink(buildAuthUrl());
+                tg.close();
             };
 
             const startParam = tg.initDataUnsafe.start_param;
