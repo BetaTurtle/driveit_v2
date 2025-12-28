@@ -321,7 +321,7 @@
             style="background-color: rgba(248, 113, 113, 0.1); color: #f87171;"></div>
 
         <div class="mt-8 text-center">
-            <span class="text-xs theme-hint opacity-50">v1.1.3</span>
+            <span class="text-xs theme-hint opacity-50">v1.1.4</span>
         </div>
     </div>
 
@@ -428,78 +428,154 @@
         async function authenticate(initData, googleCode) {
             UI.updateStatus('authenticating', 'Verifying...');
 
-            // OPTIMIZATION: Fire the backend request IMMEDIATELY if we likely need it
-            // We need it if:
-            // 1. We have a googleCode (mandatory exchange)
-            // 2. OR we might not be logged in (optimistic fetch)
+            // 1. Start Backend Request (Optimistic)
+            const backendTask = performBackendRequest(initData, googleCode);
 
-            let backendAuthPromise = null;
-
-            // Construct payload for potential request
-            const authPayload = {
-                initData,
-                googleAuth: googleCode ? { code: googleCode, redirect_uri: CONFIG.auth.redirectUri } : undefined
-            };
-
-            // If we have a Google Code, we MUST hit the backend. 
-            // If we don't, we can optimistically hit it to speed up the case where the user IS NOT logged in.
-            // But if the user IS logged in, this request is wasted bandwidth (but saves time if session is invalid).
-            // Given the goal is speed, we initiate it.
-            const shouldFetchOptimistically = !googleCode;
-
-            if (googleCode || shouldFetchOptimistically) {
-                backendAuthPromise = fetch(CONFIG.auth.backend, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(authPayload)
-                }).then(async res => {
-                    const data = await res.json();
-                    if (!res.ok) throw new Error(data.error || `Server error: ${res.status}`);
-                    return data;
-                }).catch(err => {
-                    // If optimistic, we might ignore this error if session exists
-                    return { error: err };
-                });
-            }
-
-            // Check for existing session in parallel
-            const currentUser = await new Promise(resolve => {
+            // 2. Start Local Firebase Check
+            // We wrap this in a promise that resolves with the user or null
+            const firebaseTask = new Promise(resolve => {
                 const unsubscribe = fbAuth.onAuthStateChanged(user => {
                     unsubscribe();
                     resolve(user);
                 });
             });
 
-            const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+            // 3. Race Conditions
+            // We want to update the UI as soon as we have a CONFIRMED valid state.
+            // A valid state is:
+            //  - Local: User is logged in AND matches Telegram ID.
+            //  - Network: Backend returns success AND has Google Email.
 
-            // Case 1: We requested a Google Link (googleCode present)
-            // We must use the backend result to update credentials
+            let isUiUpdated = false;
+
+            // Helper to handle completion of background sign-in
+            const completeSignIn = async (data) => {
+                if (!data.customToken) return;
+                try {
+                    await fbAuth.signInWithCustomToken(data.customToken);
+                    const user = fbAuth.currentUser;
+
+                    const userData = {
+                        telegram_id: window.Telegram.WebApp.initDataUnsafe.user.id,
+                        last_login: firebase.firestore.FieldValue.serverTimestamp(),
+                        user: window.Telegram.WebApp.initDataUnsafe.user
+                    };
+
+                    if (data.google?.email) {
+                        userData.google_email = data.google.email;
+                        userData.credentials = {
+                            access_token: data.google.access_token,
+                            refresh_token: data.google.refresh_token,
+                            expires_in: data.google.expires_in,
+                            obtained_at: Date.now()
+                        };
+                    }
+
+                    await fbDb.collection('users').doc(user.uid).set(userData, { merge: true });
+
+                    // If UI wasn't updated by optimistic check (e.g. no google email returned in payload but present in db), update now
+                    if (!isUiUpdated) {
+                        isUiUpdated = true;
+                        loadUserDriveStatus(user.uid);
+                    }
+                } catch (e) {
+                    console.error("Background sign-in failed:", e);
+                    if (!isUiUpdated) UI.showError("Auth Error: " + e.message);
+                }
+            };
+
+            // Define handlers for the race
+            const handleLocal = async (user) => {
+                const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+                if (user && tgUser && user.uid === String(tgUser.id)) {
+                    if (!isUiUpdated) {
+                        console.log("Local session valid. Updating UI.");
+                        isUiUpdated = true;
+                        loadUserDriveStatus(user.uid);
+                        updateLastLogin(user.uid);
+                    }
+                    return true; // Success
+                }
+                return false; // No valid local session
+            };
+
+            const handleNetwork = async (data) => {
+                if (data.error) throw new Error(data.error);
+
+                // If we have Google Email, we can show Connected immediately
+                if (data.google?.email && !isUiUpdated) {
+                    console.log("Backend returned email. Updating UI optimistic.");
+                    isUiUpdated = true;
+                    UI.showDriveSection(true, data.google.email);
+                }
+
+                // Always complete the sign-in/update in background/foreground
+                await completeSignIn(data);
+                return true;
+            };
+
+            // Execution Strategy:
+            // If googleCode is present, we FORCE network wait because we need to exchange code.
             if (googleCode) {
-                const result = await backendAuthPromise;
-                if (result.error) throw result.error; // Real error
-                await handleBackendResponse(result);
+                try {
+                    const data = await backendTask;
+                    await handleNetwork(data);
+                } catch (e) {
+                    UI.showError(e.message);
+                }
                 return;
             }
 
-            // Case 2: User is already logged in securely
-            if (currentUser && tgUser && currentUser.uid === String(tgUser.id)) {
-                console.log("Session restored locally.");
-                await loadUserDriveStatus(currentUser.uid);
-                updateLastLogin(currentUser.uid); // Background update
-                return;
+            // Otherwise, we race them.
+            // We use a custom race logic:
+            // Wait for both to settle unless one succeeds early.
+
+            const localPromise = firebaseTask.then(handleLocal);
+            const networkPromise = backendTask.then(handleNetwork).catch(e => {
+                console.warn("Network auth failed:", e);
+                return false;
+            });
+
+            // If local succeeds, we are done visually.
+            // If network succeeds (and has email), we are done visually.
+
+            // We wait for the "First Success" or "Both Done".
+            const results = await Promise.allSettled([localPromise, networkPromise]);
+
+            // If after both settled, UI is still not updated, it means:
+            // 1. Local was null.
+            // 2. Network didn't return google email (or failed).
+            if (!isUiUpdated) {
+                // If we are here, it means the user is likely NOT connected to Drive or NOT logged in.
+                // But completeSignIn might have run.
+                // If completeSignIn ran successfully (network success), it would have triggered `loadUserDriveStatus` if needed.
+                // So if we are still here, we probably just need to show the "Connect" button.
+
+                // Check if we are at least logged in now?
+                const user = fbAuth.currentUser;
+                if (user) {
+                    loadUserDriveStatus(user.uid);
+                } else {
+                    // No session at all.
+                    UI.showDriveSection(false);
+                }
             }
+        }
 
-            // Case 3: User is NOT logged in (or session mismatch)
-            // We need the result from the optimistic request
-            console.log("No valid session, waiting for optimistic auth...");
-            const result = await backendAuthPromise;
+        async function performBackendRequest(initData, googleCode) {
+            const authPayload = {
+                initData,
+                googleAuth: googleCode ? { code: googleCode, redirect_uri: CONFIG.auth.redirectUri } : undefined
+            };
 
-            if (result.error) {
-                // Optimization failed or real error. If it was network, we might try again or just show error.
-                throw result.error;
-            }
-
-            await handleBackendResponse(result);
+            const res = await fetch(CONFIG.auth.backend, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(authPayload)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `Server error: ${res.status}`);
+            return data;
         }
 
         async function handleBackendResponse(data) {
