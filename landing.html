@@ -321,7 +321,7 @@
             style="background-color: rgba(248, 113, 113, 0.1); color: #f87171;"></div>
 
         <div class="mt-8 text-center">
-            <span class="text-xs theme-hint opacity-50">v1.1.2</span>
+            <span class="text-xs theme-hint opacity-50">v1.1.3</span>
         </div>
     </div>
 
@@ -505,42 +505,51 @@
         async function handleBackendResponse(data) {
             if (!data.customToken) throw new Error('No auth token received');
 
-            // Sign in with new token
-            await fbAuth.signInWithCustomToken(data.customToken);
-            const user = fbAuth.currentUser;
-
-            // Save user data
-            const userData = {
-                telegram_id: window.Telegram.WebApp.initDataUnsafe.user.id,
-                last_login: firebase.firestore.FieldValue.serverTimestamp(),
-                user: window.Telegram.WebApp.initDataUnsafe.user
-            };
-
-            if (data.google?.email) {
-                Object.assign(userData, {
-                    google_email: data.google.email,
-                    credentials: {
-                        access_token: data.google.access_token,
-                        refresh_token: data.google.refresh_token,
-                        expires_in: data.google.expires_in,
-                        obtained_at: Date.now()
-                    }
-                });
-            }
-
-            // We can let this happen in background to speed up UI? 
-            // Better to await it to ensure consistency, but loadUserDriveStatus relies on it?
-            // Actually, if we just got google_email from backend, we know it.
-            // But let's stick to Firestore as source of truth.
-            await fbDb.collection('users').doc(user.uid).set(userData, { merge: true });
-
-            // Update UI
-            // Optimization: If we have data.google.email, we can show connected UI immediately without fetching firestore again
+            // OPTIMIZATION: Optimistic UI Update
+            // We have the Google info from the backend, so we can show "Connected" immediately.
+            // We don't need to wait for the slow Firebase handshake to finish visually.
             if (data.google?.email) {
                 UI.showDriveSection(true, data.google.email);
-            } else {
-                await loadUserDriveStatus(user.uid);
             }
+
+            // Perform heavier operations in background
+            (async () => {
+                try {
+                    // Sign in with new token (heavy operation)
+                    await fbAuth.signInWithCustomToken(data.customToken);
+                    const user = fbAuth.currentUser;
+
+                    // Save user data
+                    const userData = {
+                        telegram_id: window.Telegram.WebApp.initDataUnsafe.user.id,
+                        last_login: firebase.firestore.FieldValue.serverTimestamp(),
+                        user: window.Telegram.WebApp.initDataUnsafe.user
+                    };
+
+                    if (data.google?.email) {
+                        Object.assign(userData, {
+                            google_email: data.google.email,
+                            credentials: {
+                                access_token: data.google.access_token,
+                                refresh_token: data.google.refresh_token,
+                                expires_in: data.google.expires_in,
+                                obtained_at: Date.now()
+                            }
+                        });
+                    }
+
+                    await fbDb.collection('users').doc(user.uid).set(userData, { merge: true });
+
+                    // Fallback UI update if we didn't have google email initially (unlikely in this flow)
+                    if (!data.google?.email) {
+                        await loadUserDriveStatus(user.uid);
+                    }
+                } catch (e) {
+                    console.error("Background auth completion failed:", e);
+                    // Only show error if UI isn't already happy
+                    if (!data.google?.email) UI.showError("Auth failed: " + e.message);
+                }
+            })();
         }
 
         async function loadUserDriveStatus(uid) {
