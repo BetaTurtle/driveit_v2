@@ -1,6 +1,7 @@
 import asyncio
 import time
 from io import BytesIO
+from PIL import Image
 from telegram import Bot, Update
 from telegram.constants import ParseMode
 from app.config import logger, GLOBAL_SEMAPHORE, USER_LOCKS
@@ -81,10 +82,25 @@ def extract_file_info(message):
     """Extract file object, filename, and mime_type from a message."""
     file_to_download = None
     filename = "unknown_file"
+    filename = "unknown_file"
     mime_type = "application/octet-stream"
     file_type_category = "document"
 
-    if message.document:
+    if message.sticker:
+        sticker = message.sticker
+        file_to_download = sticker
+        filename = f"sticker_{int(time.time())}.webp"
+        mime_type = "image/webp"
+        file_type_category = "photo" # Sticker counts as photo
+        
+    elif message.voice:
+        voice = message.voice
+        file_to_download = voice
+        filename = f"voice_{int(time.time())}.ogg"
+        mime_type = "audio/ogg" 
+        file_type_category = "audio"
+
+    elif message.document:
         doc = message.document
         file_to_download = doc
         filename = doc.file_name or "document"
@@ -161,6 +177,18 @@ async def process_update(bot: Bot, update: Update):
         
         try:
             f_byte_array = await file_to_download.download_as_bytearray()
+            
+            # Helper for conversion
+            if mime_type == 'image/webp' and filename.endswith('.webp'):
+                 try:
+                    img = Image.open(BytesIO(f_byte_array))
+                    output = BytesIO()
+                    img.save(output, format='PNG')
+                    f_byte_array = output.getvalue()
+                    filename = filename.replace('.webp', '.png')
+                    mime_type = 'image/png'
+                 except Exception as e:
+                    logger.error(f"Sticker conversion failed: {e}")
             
             asyncio.create_task(
                 handle_upload_task(
