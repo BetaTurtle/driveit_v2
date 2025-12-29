@@ -3,7 +3,7 @@ import re
 import sys
 import os
 
-FILE_PATH = 'landing.html'
+FILE_PATH = 'frontend/landing.html'
 
 def bump_version():
     if not os.path.exists(FILE_PATH):
