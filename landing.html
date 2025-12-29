@@ -3,330 +3,301 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DriveIt Bot</title>
-    <!-- Preconnect to speed up backend connection -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>DriveIt Manager</title>
+    <!-- Preconnect -->
     <link rel="preconnect" href="https://driveit-v.deno.dev">
 
+    <!-- Scripts -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+
     <style>
         :root {
-            /* Fallback variables */
-            --tg-theme-bg-color: #ffffff;
-            --tg-theme-text-color: #000000;
-            --tg-theme-hint-color: #888888;
-            --tg-theme-link-color: #3390ec;
-            --tg-theme-button-color: #3390ec;
-            --tg-theme-button-text-color: #ffffff;
-            --tg-theme-secondary-bg-color: #f0f0f0;
+            /* Telegram Theme Variables with Fallbacks */
+            --bg-color: var(--tg-theme-bg-color, #ffffff);
+            --text-color: var(--tg-theme-text-color, #000000);
+            --hint-color: var(--tg-theme-hint-color, #999999);
+            --link-color: var(--tg-theme-link-color, #2481cc);
+            --button-color: var(--tg-theme-button-color, #5288c1);
+            --button-text-color: var(--tg-theme-button-text-color, #ffffff);
+            --secondary-bg-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            --header-bg-color: var(--tg-theme-header-bg-color, #ffffff);
+
+            /* Custom Accents */
+            --success-color: #34d399;
+            --error-color: #f87171;
+            --surface-color: var(--secondary-bg-color);
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--tg-theme-bg-color);
-            color: var(--tg-theme-text-color);
-            transition: background-color 0.2s, color 0.2s;
             margin: 0;
-            padding: 1rem;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            -webkit-font-smoothing: antialiased;
+            display: flex;
+            flex-direction: column;
             min-height: 100vh;
+        }
+
+        /* Layout */
+        .header-profile {
+            padding: 24px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background-color: var(--bg-color);
+        }
+
+        .avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: var(--button-color);
+            color: var(--button-text-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            object-fit: cover;
+            border: 2px solid var(--secondary-bg-color);
+        }
+
+        .user-details {
             display: flex;
             flex-direction: column;
-            align-items: center;
         }
 
-        /* Replaced Tailwind Utilities */
-        .w-full {
-            width: 100%;
-        }
-
-        .max-w-md {
-            max-width: 28rem;
-        }
-
-        .text-center {
-            text-align: center;
-        }
-
-        .flex {
+        .user-name-row {
             display: flex;
-        }
-
-        .flex-col {
-            flex-direction: column;
-        }
-
-        .items-center {
             align-items: center;
+            gap: 6px;
         }
 
-        .justify-between {
-            justify-content: space-between;
-        }
-
-        .mb-2 {
-            margin-bottom: 0.5rem;
-        }
-
-        .mb-3 {
-            margin-bottom: 0.75rem;
-        }
-
-        .mb-4 {
-            margin-bottom: 1rem;
-        }
-
-        .mb-5 {
-            margin-bottom: 1.25rem;
-        }
-
-        .mb-6 {
-            margin-bottom: 1.5rem;
-        }
-
-        .mt-4 {
-            margin-top: 1rem;
-        }
-
-        .mt-8 {
-            margin-top: 2rem;
-        }
-
-        .p-4 {
-            padding: 1rem;
-        }
-
-        .p-6 {
-            padding: 1.5rem;
-        }
-
-        .px-6 {
-            padding-left: 1.5rem;
-            padding-right: 1.5rem;
-        }
-
-        .py-2 {
-            padding-top: 0.5rem;
-            padding-bottom: 0.5rem;
-        }
-
-        .py-3 {
-            padding-top: 0.75rem;
-            padding-bottom: 0.75rem;
-        }
-
-        .font-bold {
+        .user-name {
+            font-size: 20px;
             font-weight: 700;
+            line-height: 1.2;
         }
 
-        .font-medium {
-            font-weight: 500;
+        .premium-badge {
+            color: #ffc107;
+            /* Gold */
+            width: 18px;
+            height: 18px;
         }
 
-        .uppercase {
-            text-transform: uppercase;
+        .user-handle {
+            font-size: 14px;
+            color: var(--hint-color);
+            margin-top: 2px;
         }
 
-        .tracking-wide {
-            letter-spacing: 0.025em;
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 0 16px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
         }
 
-        .text-2xl {
-            font-size: 1.5rem;
-            line-height: 2rem;
+        .status-card {
+            background-color: var(--surface-color);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            transition: all 0.3s ease;
         }
 
-        .text-lg {
-            font-size: 1.125rem;
-            line-height: 1.75rem;
-        }
-
-        .text-sm {
-            font-size: 0.875rem;
-            line-height: 1.25rem;
-        }
-
-        .text-xs {
-            font-size: 0.75rem;
-            line-height: 1rem;
-        }
-
-        .rounded-lg {
-            border-radius: 0.5rem;
-        }
-
-        .rounded-xl {
-            border-radius: 0.75rem;
-        }
-
-        .shadow-sm {
-            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        .inline-block {
+        .card-icon {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
             display: inline-block;
         }
 
-        .opacity-50 {
-            opacity: 0.5;
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
         }
 
-        .opacity-80 {
+        .card-desc {
+            font-size: 14px;
+            color: var(--hint-color);
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        /* Buttons */
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            text-align: center;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            box-sizing: border-box;
+            transition: opacity 0.2s;
+        }
+
+        .btn:active {
+            opacity: 0.8;
+            transform: scale(0.99);
+        }
+
+        .btn-primary {
+            background-color: var(--button-color);
+            color: var(--button-text-color);
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--hint-color);
+            padding: 12px;
+            font-size: 14px;
+        }
+
+        .btn-close {
+            background-color: var(--surface-color);
+            color: var(--text-color);
+            margin-top: auto;
+            /* Push to bottom */
+        }
+
+        /* States */
+        .state-connected .card-icon {
+            color: var(--success-color);
+        }
+
+        .state-disconnected .card-icon {
             opacity: 0.8;
         }
 
-        .opacity-90 {
-            opacity: 0.9;
-        }
-
-        .underline {
-            text-decoration: underline;
-        }
-
-        .cursor-pointer {
-            cursor: pointer;
-        }
-
-        /* Custom Theme Classes */
-        .theme-section {
-            background-color: var(--tg-theme-secondary-bg-color);
-            color: var(--tg-theme-text-color);
-            border-radius: 12px;
-        }
-
-        .theme-button {
-            background-color: var(--tg-theme-button-color);
-            color: var(--tg-theme-button-text-color);
-            text-decoration: none;
-        }
-
-        .theme-button:hover {
-            opacity: 0.9;
-        }
-
-        .theme-link {
-            color: var(--tg-theme-link-color);
-        }
-
-        .theme-hint {
-            color: var(--tg-theme-hint-color);
-        }
-
-        .theme-border {
-            border-color: rgba(0, 0, 0, 0.1);
-            border-bottom-width: 1px;
-            border-bottom-style: solid;
-        }
-
-        /* Status Dots */
-        .status-dot {
-            height: 10px;
-            width: 10px;
-            border-radius: 50%;
+        .email-display {
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.05);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 24px;
             display: inline-block;
-            margin-right: 6px;
+            color: var(--text-color);
         }
 
-        .status-idle {
-            background-color: var(--tg-theme-hint-color);
+        /* Loading Skeleton */
+        .skeleton {
+            background: linear-gradient(90deg, var(--surface-color) 25%, var(--bg-color) 50%, var(--surface-color) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 8px;
         }
 
-        .status-authenticating {
-            background-color: #fbbf24;
+        @keyframes loading {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
         }
 
-        .status-authenticated {
-            background-color: #34d399;
+        .hidden {
+            display: none !important;
         }
 
-        .status-error {
-            background-color: #f87171;
-        }
-
-        /* Icon */
-        .icon-check {
-            height: 2rem;
-            width: 2rem;
+        /* Footer */
+        .footer {
+            padding: 16px;
+            text-align: center;
         }
     </style>
 </head>
 
 <body>
 
-    <div class="w-full max-w-md">
-        <h1 class="text-2xl font-bold mb-6 text-center" style="color: var(--tg-theme-text-color)">DriveIt Bot</h1>
-
-        <!-- Primary Status Indicator -->
-        <div id="auth-status" class="mb-5 text-center font-medium p-4 theme-section shadow-sm">
-            <span id="auth-status-dot" class="status-dot status-idle"></span>
-            <span id="auth-status-text" class="text-sm">Initializing...</span>
-        </div>
-
-        <!-- User Information Table -->
-        <div id="user-info" class="mb-6 hidden theme-section p-4 shadow-sm">
-            <h3 class="text-xs font-bold uppercase mb-3 tracking-wide theme-hint">Telegram User</h3>
-            <!-- Populated by JS -->
-        </div>
-
-        <!-- Drive Connection Status -->
-        <div id="drive-section" class="mb-4 hidden">
-            <h3 class="text-xs font-bold uppercase mb-3 tracking-wide theme-hint" style="margin-left: 0.5rem;">Google
-                Drive</h3>
-
-            <div class="theme-section p-6 shadow-sm text-center">
-
-                <!-- Not Connected State -->
-                <div id="drive-connect-ui" class="hidden">
-                    <p class="text-sm mb-4">Link your Google Drive to enable file uploads.</p>
-                    <a id="drive-link" href="#"
-                        class="inline-block px-6 py-3 rounded-xl font-semibold shadow-sm transition theme-button">
-                        Connect Google Drive
-                    </a>
-                </div>
-
-                <!-- Connected State -->
-                <div id="drive-connected-ui" class="hidden">
-                    <div class="flex items-center justify-center mb-2" style="color: #34d399; gap: 0.5rem;">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon-check" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span class="font-bold text-lg">Connected</span>
-                    </div>
-                    <p id="drive-email" class="text-center text-sm font-medium mb-6 opacity-80"></p>
-
-                    <div class="p-5 rounded-lg text-sm text-center mb-6"
-                        style="background-color: rgba(52, 211, 153, 0.1); color: #34d399;">
-                        Send files to <a href="#"
-                            onclick="Telegram.WebApp.openTelegramLink('https://t.me/DriveItBot', {force_request: true}); return false;"
-                            class="font-bold underline hover:opacity-80">@DriveItBot</a> to upload!
-                    </div>
-
-                    <button id="logout-button"
-                        class="w-full text-center text-sm py-2 rounded transition theme-hint hover:opacity-80 underline cursor-pointer"
-                        style="background:none; border:none;">
-                        Unlink Account
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <div id="error" class="hidden mt-4 p-3 rounded-lg text-sm text-center"
-            style="background-color: rgba(248, 113, 113, 0.1); color: #f87171;"></div>
-
-        <div class="mt-8 text-center">
-            <span class="text-xs theme-hint opacity-50">v1.1.9</span>
+    <!-- Header: User Profile -->
+    <div class="header-profile" id="profile-header">
+        <div class="skeleton" style="width: 60px; height: 60px; border-radius: 50%;"></div>
+        <div class="user-details">
+            <div class="skeleton" style="width: 120px; height: 24px; margin-bottom: 4px;"></div>
+            <div class="skeleton" style="width: 80px; height: 16px;"></div>
         </div>
     </div>
 
+    <!-- Main Content -->
+    <div class="main-content">
+
+        <!-- Loading State -->
+        <div id="state-loading" class="status-card">
+            <div class="card-icon skeleton" style="border-radius: 50%;"></div>
+            <div class="skeleton" style="height: 20px; width: 60%; margin: 0 auto 10px;"></div>
+            <div class="skeleton" style="height: 14px; width: 80%; margin: 0 auto;"></div>
+        </div>
+
+        <!-- Disconnected State -->
+        <div id="state-disconnected" class="status-card state-disconnected hidden">
+            <!-- Google Drive Icon SVG -->
+            <svg class="card-icon" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg">
+                <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l18.25-31.45-25.4-4.4z" fill="#0066da" />
+                <path d="m43.65 25-11.8 20.4-18.25 31.45h35.75c2.9 0 5.4-1.55 6.85-3.85l10.25-17.75z" fill="#00ac47" />
+                <path d="m73.55 76.85c1.45-.8 2.6-2.05 3.4-3.5l10.25-17.75c.85-1.5.85-3.35 0-4.85l-17.75-30.75h-25.8z"
+                    fill="#ea4335" />
+                <path d="m43.65 25 12.95-22.45c-1.45-.85-3.15-1.35-5-1.3h-21.7c-1.75 0-3.35.45-4.7 1.3z"
+                    fill="#0055ff" />
+                <path d="m14.95 1.25c-1.45.8-2.6 2.05-3.4 3.5l-11.45 19.8c-.85 1.45-.85 3.25 0 4.7l25.4 4.4z"
+                    fill="#00832d" />
+                <path d="m69.85 55.45h-35.75l-11.8 20.4 5.75 2.15z" fill="#2684fc" />
+            </svg>
+            <h2 class="card-title">Setup Google Drive</h2>
+            <p class="card-desc">Link your account to enable automatic file processing. We only ask for permission to
+                manage files created by this bot.</p>
+            <a href="#" id="btn-connect" class="btn btn-primary">Connect Account</a>
+        </div>
+
+        <!-- Connected State -->
+        <div id="state-connected" class="status-card state-connected hidden">
+            <svg class="card-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h2 class="card-title">System Active</h2>
+            <p class="card-desc">Your Google Drive is connected and ready to receive files.</p>
+
+            <div id="display-email" class="email-display">user@gmail.com</div>
+
+            <p class="card-desc" style="font-size: 13px;">To upload, simply send files to the bot chat.</p>
+
+            <button id="btn-logout" class="btn btn-secondary">Unlink Account</button>
+        </div>
+
+        <!-- Error State -->
+        <div id="state-error" class="status-card hidden" style="border: 1px solid var(--error-color);">
+            <div class="card-title" style="color: var(--error-color)">Connection Error</div>
+            <p id="error-msg" class="card-desc">Something went wrong.</p>
+        </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <button onclick="Telegram.WebApp.close()" class="btn btn-close">Close Manager</button>
+        <div style="margin-top: 12px; font-size: 10px; color: var(--hint-color); opacity: 0.6;">v1.2.0 (Dashboard)</div>
+    </div>
+
     <script>
+        // CONFIG
         const CONFIG = {
             firebase: {
                 apiKey: "AIzaSyAIY6BkbO6gRLMcLuOgtIBvwI4J1y2CHcw",
@@ -341,69 +312,72 @@
             }
         };
 
+        // UI Controller
         const UI = {
-            statusDot: document.getElementById('auth-status-dot'),
-            statusText: document.getElementById('auth-status-text'),
-            userInfo: document.getElementById('user-info'),
-            driveSection: document.getElementById('drive-section'),
-            driveConnectBox: document.getElementById('drive-connect-ui'),
-            driveConnectedBox: document.getElementById('drive-connected-ui'),
-            driveEmail: document.getElementById('drive-email'),
-            driveLink: document.getElementById('drive-link'),
-            errorBox: document.getElementById('error'),
+            header: document.getElementById('profile-header'),
+            stateLoading: document.getElementById('state-loading'),
+            stateDisconnected: document.getElementById('state-disconnected'),
+            stateConnected: document.getElementById('state-connected'),
+            stateError: document.getElementById('state-error'),
+            errorMsg: document.getElementById('error-msg'),
+            btnConnect: document.getElementById('btn-connect'),
+            displayEmail: document.getElementById('display-email'),
+            btnLogout: document.getElementById('btn-logout'),
 
-            updateStatus(state, text) {
-                // state: 'idle', 'authenticating', 'authenticated', 'error'
-                this.statusDot.className = `status-dot status-${state}`;
-                this.statusText.textContent = text;
-            },
-
-            displayUser(user) {
-                this.userInfo.innerHTML = '<h3 class="text-xs font-bold uppercase mb-3 tracking-wide theme-hint">Telegram User</h3>';
-                const fields = [
-                    { label: 'ID', value: user.id },
-                    { label: 'Username', value: user.username ? `@${user.username}` : 'N/A' },
-                ];
-
-                fields.forEach((f, index) => {
-                    const row = document.createElement('div');
-                    row.className = `flex justify-between text-sm py-2 ${index < fields.length - 1 ? 'theme-border' : ''}`;
-                    row.innerHTML = `<span class="theme-hint">${f.label}</span><span class="font-medium">${f.value}</span>`;
-                    this.userInfo.appendChild(row);
-                });
-                this.userInfo.classList.remove('hidden');
-            },
-
-            showDriveSection(connected, email = null) {
-                this.driveSection.classList.remove('hidden');
-                if (connected) {
-                    this.driveConnectBox.classList.add('hidden');
-                    this.driveConnectedBox.classList.remove('hidden');
-                    this.driveEmail.textContent = email;
-                    this.updateStatus('authenticated', 'Start Uploading!');
-                } else {
-                    this.driveConnectBox.classList.remove('hidden');
-                    this.driveConnectedBox.classList.add('hidden');
-                    this.driveLink.href = buildAuthUrl();
-                    this.updateStatus('authenticated', 'Action Required');
+            initUser(user) {
+                // Render Profile Header
+                let avatarHtml = `<div class="avatar">${user.first_name[0]}</div>`;
+                if (user.photo_url) {
+                    avatarHtml = `<img src="${user.photo_url}" class="avatar" alt="Avatar">`;
                 }
+
+                const premiumIcon = user.is_premium ?
+                    `<svg class="premium-badge" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.5 7h7.5l-6 4.5 2.5 7.5-6-4.5-6 4.5 2.5-7.5-6-4.5h7.5z"/></svg>` : '';
+
+                this.header.innerHTML = `
+                    ${avatarHtml}
+                    <div class="user-details">
+                        <div class="user-name-row">
+                            <span class="user-name">${user.first_name} ${user.last_name || ''}</span>
+                            ${premiumIcon}
+                        </div>
+                        <div class="user-handle">${user.username ? '@' + user.username : ''}</div>
+                    </div>
+                `;
             },
 
-            showError(msg) {
-                this.updateStatus('error', 'Error');
-                this.errorBox.textContent = msg;
-                this.errorBox.classList.remove('hidden');
+            showState(stateName, data = null) {
+                // Hide all
+                this.stateLoading.classList.add('hidden');
+                this.stateDisconnected.classList.add('hidden');
+                this.stateConnected.classList.add('hidden');
+                this.stateError.classList.add('hidden');
+
+                if (stateName === 'loading') {
+                    this.stateLoading.classList.remove('hidden');
+                } else if (stateName === 'disconnected') {
+                    this.stateDisconnected.classList.remove('hidden');
+                    this.btnConnect.href = buildAuthUrl();
+                    this.btnConnect.onclick = () => {
+                        window.Telegram.WebApp.openLink(buildAuthUrl());
+                        window.Telegram.WebApp.close();
+                    };
+                } else if (stateName === 'connected') {
+                    this.stateConnected.classList.remove('hidden');
+                    this.displayEmail.textContent = data?.email || 'Unknown Email';
+                } else if (stateName === 'error') {
+                    this.stateError.classList.remove('hidden');
+                    this.errorMsg.textContent = data || 'Unknown Error';
+                }
             }
         };
 
+        // Helpers
         function decodeBase64Url(str) {
-            if (!str) return null;
             try {
                 const base64 = str.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - str.length % 4) % 4);
                 return new TextDecoder().decode(Uint8Array.from(atob(base64), c => c.charCodeAt(0)));
-            } catch (e) {
-                return null;
-            }
+            } catch (e) { return null; }
         }
 
         function buildAuthUrl() {
@@ -420,19 +394,21 @@
             return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
         }
 
-        // Initialize Firebase
+        // Firebase Init
         const fbApp = firebase.initializeApp(CONFIG.firebase);
         const fbAuth = fbApp.auth();
         const fbDb = fbApp.firestore();
 
-        // Optimized Auth Flow
+        // ---------------------------------------------------------
+        // AUTHENTICATION LOGIC (Optimized v1.1.7)
+        // ---------------------------------------------------------
         async function authenticate(initData, googleCode) {
-            UI.updateStatus('authenticating', 'Verifying...');
+            UI.showState('loading');
 
-            // 1. Start Backend Request (Optimistic)
+            // 1. Optimistic Backend Request
             const backendTask = performBackendRequest(initData, googleCode);
 
-            // 2. Start Local Firebase Check
+            // 2. Local Session Check
             const firebaseTask = new Promise(resolve => {
                 const unsubscribe = fbAuth.onAuthStateChanged(user => {
                     unsubscribe();
@@ -440,21 +416,21 @@
                 });
             });
 
-            // State Tracking
             let isUiUpdated = false;
             let backendError = null;
 
-            // Helper to finalize sign-in in background
+            // Background Finalizer
             const completeSignIn = async (data) => {
                 if (!data.customToken) return;
                 try {
                     await fbAuth.signInWithCustomToken(data.customToken);
                     const user = fbAuth.currentUser;
 
+                    const tgUser = window.Telegram.WebApp.initDataUnsafe.user;
                     const userData = {
-                        telegram_id: window.Telegram.WebApp.initDataUnsafe.user.id,
+                        telegram_id: tgUser.id,
                         last_login: firebase.firestore.FieldValue.serverTimestamp(),
-                        user: window.Telegram.WebApp.initDataUnsafe.user
+                        user: tgUser
                     };
 
                     if (data.google?.email) {
@@ -469,15 +445,12 @@
 
                     await fbDb.collection('users').doc(user.uid).set(userData, { merge: true });
 
-                    // If UI wasn't updated by optimistic check, update now
-                    if (!isUiUpdated) {
+                    if (!isUiUpdated && data.google?.email) {
                         isUiUpdated = true;
-                        loadUserDriveStatus(user.uid);
+                        UI.showState('connected', { email: data.google.email });
                     }
                 } catch (e) {
                     console.error("Background sign-in failed:", e);
-                    // If we haven't shown success yet, we should show this error
-                    if (!isUiUpdated) UI.showError("Auth Error: " + e.message);
                 }
             };
 
@@ -485,13 +458,26 @@
             const handleLocal = async (user) => {
                 const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
                 if (user && tgUser && user.uid === String(tgUser.id)) {
+                    // Check local DB/Cache for email
                     if (!isUiUpdated) {
-                        console.log("Local session valid. Updating UI.");
-                        isUiUpdated = true;
-                        loadUserDriveStatus(user.uid);
-                        updateLastLogin(user.uid);
+                        try {
+                            const doc = await fbDb.collection('users').doc(user.uid).get();
+                            const email = doc.data()?.google_email;
+                            if (email) {
+                                console.log("Local session valid. Updating UI.");
+                                isUiUpdated = true;
+                                UI.showState('connected', { email: email });
+
+                                // Update last login in bg
+                                fbDb.collection('users').doc(user.uid).set({
+                                    last_login: firebase.firestore.FieldValue.serverTimestamp(),
+                                    user: tgUser
+                                }, { merge: true });
+
+                                return { source: 'local', success: true };
+                            }
+                        } catch (e) { console.warn("Local DB fetch failed", e); }
                     }
-                    return { source: 'local', success: true };
                 }
                 return { source: 'local', success: false };
             };
@@ -499,66 +485,51 @@
             const handleNetwork = async (data) => {
                 if (data.error) throw new Error(data.error);
 
-                // Optimistic UI Update
                 if (data.google?.email && !isUiUpdated) {
-                    console.log("Backend returned email. Updating UI optimistic.");
+                    console.log("Backend success. Updating UI.");
                     isUiUpdated = true;
-                    UI.showDriveSection(true, data.google.email);
+                    UI.showState('connected', { email: data.google.email });
                 }
 
-                // Start background sync
                 completeSignIn(data);
                 return { source: 'network', success: true };
             };
 
-            // IF googleCode is present, we must wait for network strictly.
+            // Logic Flow
             if (googleCode) {
                 try {
                     const data = await backendTask;
                     await handleNetwork(data);
                 } catch (e) {
-                    UI.showError(e.message);
+                    UI.showState('error', e.message);
                 }
                 return;
             }
 
-            // RACE LOGIC:
-            // We create promise wrappers that resolve if SUCCESS, but do NOT resolve if failure (allows others to win).
-            // We only stop when one succeeds, or ALL fail.
-
             const localRace = firebaseTask.then(handleLocal).then(res => {
                 if (res.success) return res;
-                throw new Error("Local failed"); // Throw to keep Promise.any waiting
+                throw new Error("Local failed");
             });
 
             const networkRace = backendTask.then(handleNetwork).catch(e => {
-                console.warn("Network auth failed/skipped:", e);
                 backendError = e.message;
-                throw e; // Throw to keep Promise.any waiting
+                throw e;
             });
 
             try {
-                // Wait for the FIRST successful auth outcome
                 await Promise.any([localRace, networkRace]);
-                // If we get here, one of them succeeded and updated the UI (or started background sync).
             } catch (aggregateError) {
-                // If we get here, BOTH failed.
-                console.warn("Both auth methods failed.");
-
-                // Final Check: Did completeSignIn manage to finish in the background?
+                // Both Failed
                 if (!isUiUpdated) {
-                    // Check currentUser one last time (maybe localRace failed but completeSignIn finished late?)
+                    // Double check current user just in case
                     const user = fbAuth.currentUser;
                     if (user) {
-                        loadUserDriveStatus(user.uid);
+                        // Fallback attempt to read db
+                        handleLocal(user).then(res => {
+                            if (!res.success) UI.showState('disconnected');
+                        });
                     } else {
-                        // Truly failed both.
-                        console.log("Showing Connect UI. Backend Error:", backendError);
-                        if (backendError) {
-                            // Optionally show a toast? For now, just Connect UI.
-                            // UI.showError("Network: " + backendError); 
-                        }
-                        UI.showDriveSection(false);
+                        UI.showState('disconnected');
                     }
                 }
             }
@@ -580,124 +551,37 @@
             return data;
         }
 
-        async function handleBackendResponse(data) {
-            if (!data.customToken) throw new Error('No auth token received');
-
-            // OPTIMIZATION: Optimistic UI Update
-            // We have the Google info from the backend, so we can show "Connected" immediately.
-            // We don't need to wait for the slow Firebase handshake to finish visually.
-            if (data.google?.email) {
-                UI.showDriveSection(true, data.google.email);
-            }
-
-            // Perform heavier operations in background
-            (async () => {
-                try {
-                    // Sign in with new token (heavy operation)
-                    await fbAuth.signInWithCustomToken(data.customToken);
-                    const user = fbAuth.currentUser;
-
-                    // Save user data
-                    const userData = {
-                        telegram_id: window.Telegram.WebApp.initDataUnsafe.user.id,
-                        last_login: firebase.firestore.FieldValue.serverTimestamp(),
-                        user: window.Telegram.WebApp.initDataUnsafe.user
-                    };
-
-                    if (data.google?.email) {
-                        Object.assign(userData, {
-                            google_email: data.google.email,
-                            credentials: {
-                                access_token: data.google.access_token,
-                                refresh_token: data.google.refresh_token,
-                                expires_in: data.google.expires_in,
-                                obtained_at: Date.now()
-                            }
-                        });
-                    }
-
-                    await fbDb.collection('users').doc(user.uid).set(userData, { merge: true });
-
-                    // Fallback UI update if we didn't have google email initially (unlikely in this flow)
-                    if (!data.google?.email) {
-                        await loadUserDriveStatus(user.uid);
-                    }
-                } catch (e) {
-                    console.error("Background auth completion failed:", e);
-                    // Only show error if UI isn't already happy
-                    if (!data.google?.email) UI.showError("Auth failed: " + e.message);
-                }
-            })();
-        }
-
-        async function loadUserDriveStatus(uid) {
-            try {
-                const docRef = fbDb.collection('users').doc(uid);
-                const snapshot = await docRef.get();
-                const email = snapshot.data()?.google_email;
-                UI.showDriveSection(!!email, email);
-            } catch (err) {
-                console.error("Failed to load user status:", err);
-                UI.showError("Failed to load user status");
-            }
-        }
-
-        async function updateLastLogin(uid) {
-            try {
-                // Fire and forget
-                fbDb.collection('users').doc(uid).set({
-                    last_login: firebase.firestore.FieldValue.serverTimestamp(),
-                    user: window.Telegram.WebApp.initDataUnsafe.user
-                }, { merge: true });
-            } catch (e) {
-                console.warn("Background last_login update failed:", e);
-            }
-        }
-
         async function logout() {
             if (!confirm('Are you sure you want to unlink your Google Drive?')) return;
             try {
-                const fb = firebase.app();
-                const user = fb.auth().currentUser;
+                const user = fbAuth.currentUser;
+                UI.showState('loading');
                 if (user) {
-                    await fb.firestore().collection('users').doc(user.uid).update({
+                    await fbDb.collection('users').doc(user.uid).update({
                         google_email: firebase.firestore.FieldValue.delete(),
                         credentials: firebase.firestore.FieldValue.delete()
                     });
-                    await fb.auth().signOut();
+                    await fbAuth.signOut();
                     window.location.reload();
                 }
             } catch (err) {
-                UI.showError('Logout failed: ' + err.message);
+                UI.showState('error', err.message);
             }
         }
 
-        // Main
+        // Initialization
         const tg = window.Telegram?.WebApp;
-        if (!tg || !tg.initData || !tg.initDataUnsafe?.user) {
-            // For testing in browser without Telegram
-            // Mock if needed, or show error
-            UI.showError('This app must be opened from Telegram.');
-            document.body.style.backgroundColor = '#fff';
-            document.body.style.color = '#000';
-            UI.updateStatus('error', 'Environment Error');
+        if (!tg || !tg.initDataUnsafe?.user) {
+            // Browser Dev Mode Fallback
+            document.body.innerHTML = '<div style="padding:20px">Please open in Telegram</div>';
         } else {
             tg.ready();
             tg.expand();
-
-            tg.setHeaderColor?.(tg.themeParams.secondary_bg_color || tg.themeParams.bg_color || '#ffffff');
-            UI.displayUser(tg.initDataUnsafe.user);
-
-            document.getElementById('logout-button').onclick = logout;
-            UI.driveLink.onclick = (e) => {
-                e.preventDefault();
-                tg.openLink(buildAuthUrl());
-                tg.close();
-            };
+            UI.initUser(tg.initDataUnsafe.user);
+            UI.btnLogout.onclick = logout;
 
             const startParam = tg.initDataUnsafe.start_param;
             const googleCode = startParam ? decodeBase64Url(startParam) : null;
-
             authenticate(tg.initData, googleCode);
         }
     </script>
