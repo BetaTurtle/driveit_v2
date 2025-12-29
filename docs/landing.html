@@ -9,9 +9,9 @@
   <link rel="preconnect" href="https://driveit-v.deno.dev">
   <!-- Telegram Web App -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script type="module" crossorigin src="/driveit_v2/assets/landing-BK3OuLS2.js"></script>
+  <script type="module" crossorigin src="/driveit_v2/assets/landing-SVM13xsD.js"></script>
   <link rel="modulepreload" crossorigin href="/driveit_v2/assets/modulepreload-polyfill-B5Qt9EMX.js">
-  <link rel="stylesheet" crossorigin href="/driveit_v2/assets/landing-BZAsoMKz.css">
+  <link rel="stylesheet" crossorigin href="/driveit_v2/assets/landing-CYFapMb7.css">
 </head>
 
 <body>
@@ -61,6 +61,20 @@
           onclick="Telegram.WebApp.openTelegramLink('https://t.me/DriveItBot', {force_request: true}); return false;"
           style="color: var(--link-color); text-decoration: none; font-weight: bold;">@DriveItBot</a> to upload to your
         Google Drive.</p>
+
+      <div id="usage-stats-container"
+        style="margin-top: 24px; border-top: 1px solid rgba(0,0,0,0.05); padding-top: 16px; display: none;">
+        <h3 class="card-title" style="font-size: 15px; margin-bottom: 12px; text-align: left;">Usage Statistics</h3>
+        <div class="stat-row">
+          <span>Total Files</span>
+          <span id="stat-total-files" style="font-weight: bold;">0</span>
+        </div>
+        <div class="stat-row">
+          <span>Total Data</span>
+          <span id="stat-total-size" style="font-weight: bold;">0 B</span>
+        </div>
+        <div class="stat-grid" id="stat-breakdown" style="margin-top: 12px;"></div>
+      </div>
     </div>
 
     <!-- Error State -->
@@ -77,7 +91,7 @@
 
   <!-- Footer -->
   <div class="footer">
-    <div style="margin-top: 12px; font-size: 10px; color: var(--hint-color); opacity: 0.6;">v2.0.1 (Modular)</div>
+    <div style="margin-top: 12px; font-size: 10px; color: var(--hint-color); opacity: 0.6;">v2.0.2</div>
   </div>
 
 </body>

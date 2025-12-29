@@ -56,15 +56,69 @@ const UI = {
       };
     } else if (stateName === 'connected') {
       this.stateConnected.classList.remove('hidden');
-      this.displayEmail.textContent = data?.email || 'Unknown Email';
+      this.displayEmail.textContent = data?.google_email || data?.email || 'Unknown Email';
+      this.renderStats(data?.usage);
     } else if (stateName === 'error') {
       this.stateError.classList.remove('hidden');
       this.errorMsg.textContent = data || 'Unknown Error';
+    }
+  },
+
+  renderStats(usage) {
+    const container = document.getElementById('usage-stats-container');
+    if (!container) return;
+
+    // Always show container if we are connected, even if stats are 0
+    container.style.display = 'block';
+
+    if (!usage) {
+      // Reset to 0
+      document.getElementById('stat-total-files').textContent = '0';
+      document.getElementById('stat-total-size').textContent = '0 B';
+      document.getElementById('stat-breakdown').innerHTML = '<div class="stat-item" style="grid-column: span 2;">No files uploaded yet</div>';
+      return;
+    }
+
+    document.getElementById('stat-total-files').textContent = (usage.total_files || 0).toLocaleString();
+    document.getElementById('stat-total-size').textContent = formatBytes(usage.total_bytes || 0);
+
+    const breakdownHtml = [];
+    const types = ['photo', 'video', 'audio', 'document'];
+
+    if (usage.breakdown) {
+      types.forEach(type => {
+        const data = usage.breakdown[type];
+        if (data && data.count > 0) {
+          breakdownHtml.push(`
+                    <div class="stat-item">
+                        <span class="stat-label">${type}s</span>
+                        <div class="stat-value">${data.count}</div>
+                        <div style="font-size: 10px; opacity: 0.7;">${formatBytes(data.bytes)}</div>
+                    </div>
+                `);
+        }
+      });
+    }
+
+    const breakdownEl = document.getElementById('stat-breakdown');
+    if (breakdownHtml.length > 0) {
+      breakdownEl.innerHTML = breakdownHtml.join('');
+    } else {
+      breakdownEl.innerHTML = '<div class="stat-item" style="grid-column: span 2;">No uploads yet</div>';
     }
   }
 };
 
 // Helpers
+function formatBytes(bytes, decimals = 1) {
+  if (!+bytes) return '0 B';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
+
 function decodeBase64Url(str) {
   try {
     const base64 = str.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - str.length % 4) % 4);
@@ -141,7 +195,7 @@ async function authenticate(initData, googleCode) {
         if (email) {
           if (!isUiUpdated) {
             isUiUpdated = true;
-            UI.showState('connected', { email: email });
+            UI.showState('connected', docSnap.data());
           }
         } else {
           if (!isUiUpdated) {
@@ -171,7 +225,7 @@ async function authenticate(initData, googleCode) {
           if (email) {
             console.log("Local session valid. Updating UI.");
             isUiUpdated = true;
-            UI.showState('connected', { email: email });
+            UI.showState('connected', docSnap.data());
 
             // Update last login in bg
             setDoc(userRef, {

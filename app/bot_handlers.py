@@ -5,8 +5,9 @@ from telegram import Bot, Update
 from telegram.constants import ParseMode
 from app.config import logger, GLOBAL_SEMAPHORE, USER_LOCKS
 from app.services.drive_service import upload_file_to_drive_sync
+from app.services.firebase_service import update_usage_stats
 
-async def handle_upload_task(bot: Bot, chat_id: int, user_id: int, message_id: int, file_data: bytes, filename: str, mime_type: str, status_msg_id: int):
+async def handle_upload_task(bot: Bot, chat_id: int, user_id: int, message_id: int, file_data: bytes, filename: str, mime_type: str, file_type: str, status_msg_id: int):
     """
     Background task to handle the upload process with queueing.
     """
@@ -40,6 +41,11 @@ async def handle_upload_task(bot: Bot, chat_id: int, user_id: int, message_id: i
                 )
                 
         if success:
+             # Update usage stats
+            asyncio.create_task(
+                 asyncio.to_thread(update_usage_stats, user_id, file_type, len(file_data))
+            )
+
             try:
                 await bot.delete_message(chat_id=chat_id, message_id=status_msg_id)
             except Exception:
@@ -76,6 +82,7 @@ def extract_file_info(message):
     file_to_download = None
     filename = "unknown_file"
     mime_type = "application/octet-stream"
+    file_type_category = "document"
 
     if message.document:
         doc = message.document
@@ -88,20 +95,23 @@ def extract_file_info(message):
         file_to_download = photo
         filename = f"photo_{int(time.time())}.jpg"
         mime_type = "image/jpeg"
+        file_type_category = "photo"
         
     elif message.video:
         video = message.video
         file_to_download = video
         filename = video.file_name or f"video_{int(time.time())}.mp4"
         mime_type = video.mime_type or mime_type
+        file_type_category = "video"
 
     elif message.audio:
         audio = message.audio
         file_to_download = audio
         filename = audio.file_name or f"audio_{int(time.time())}.mp3"
         mime_type = audio.mime_type or mime_type
+        file_type_category = "audio"
     
-    return file_to_download, filename, mime_type
+    return file_to_download, filename, mime_type, file_type_category
 
 async def process_update(bot: Bot, update: Update):
     """Process a single update."""
@@ -121,7 +131,7 @@ async def process_update(bot: Bot, update: Update):
 
     # Handle Files
     file_info = extract_file_info(update.message)
-    file_obj, filename, mime_type = file_info
+    file_obj, filename, mime_type, file_type = file_info
 
     file_to_download = None
     
@@ -161,6 +171,7 @@ async def process_update(bot: Bot, update: Update):
                     f_byte_array,
                     filename, 
                     mime_type, 
+                    file_type,
                     status_msg.message_id
                 )
             )
