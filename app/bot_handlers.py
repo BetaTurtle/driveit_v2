@@ -100,6 +100,13 @@ def extract_file_info(message):
         mime_type = "audio/ogg" 
         file_type_category = "audio"
 
+    elif message.video_note:
+        vnote = message.video_note
+        file_to_download = vnote
+        filename = f"video_note_{int(time.time())}.mp4"
+        mime_type = "video/mp4"
+        file_type_category = "video"
+
     elif message.document:
         doc = message.document
         file_to_download = doc
