@@ -68,7 +68,7 @@ def update_usage_stats(user_id: int, file_type: str, file_size_bytes: int):
         doc_ref = db.collection('users').document(str(user_id))
         
         # Ensure file_type is one of our expected categories
-        allowed_types = ['photo', 'video', 'audio', 'document']
+        allowed_types = ['photo', 'video', 'audio', 'document', 'sticker', 'voice', 'video_note']
         if file_type not in allowed_types:
             file_type = 'document'
 

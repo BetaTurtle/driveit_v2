@@ -83,7 +83,11 @@ const UI = {
     document.getElementById('stat-total-size').textContent = formatBytes(usage.total_bytes || 0);
 
     const breakdownHtml = [];
-    const types = ['photo', 'video', 'audio', 'document'];
+    const types = ['photo', 'video', 'audio', 'sticker', 'voice', 'video_note', 'document'];
+    const labels = {
+      photo: 'Photos', video: 'Videos', audio: 'Audio', document: 'Docs',
+      sticker: 'Stickers', voice: 'Voice', video_note: 'Video Notes'
+    };
 
     if (usage.breakdown) {
       types.forEach(type => {
@@ -91,7 +95,7 @@ const UI = {
         if (data && data.count > 0) {
           breakdownHtml.push(`
                     <div class="stat-item">
-                        <span class="stat-label">${type}s</span>
+                        <span class="stat-label">${labels[type] || type}</span>
                         <div class="stat-value">${data.count}</div>
                         <div style="font-size: 10px; opacity: 0.7;">${formatBytes(data.bytes)}</div>
                     </div>

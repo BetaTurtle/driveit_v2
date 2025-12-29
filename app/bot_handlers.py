@@ -90,21 +90,21 @@ def extract_file_info(message):
         file_to_download = sticker
         filename = f"sticker_{int(time.time())}.webp"
         mime_type = "image/webp"
-        file_type_category = "photo" # Sticker counts as photo
+        file_type_category = "sticker" # Explicit sticker category
         
     elif message.voice:
         voice = message.voice
         file_to_download = voice
         filename = f"voice_{int(time.time())}.ogg"
         mime_type = "audio/ogg" 
-        file_type_category = "audio"
+        file_type_category = "voice" # Explicit voice category
 
     elif message.video_note:
         vnote = message.video_note
         file_to_download = vnote
         filename = f"video_note_{int(time.time())}.mp4"
         mime_type = "video/mp4"
-        file_type_category = "video"
+        file_type_category = "video_note" # Explicit video_note category
 
     elif message.document:
         doc = message.document
