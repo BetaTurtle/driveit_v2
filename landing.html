@@ -73,29 +73,23 @@
             flex-direction: column;
         }
 
-        .user-name-row {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
         .user-name {
             font-size: 20px;
             font-weight: 700;
             line-height: 1.2;
         }
 
-        .premium-badge {
-            color: #ffc107;
-            /* Gold */
-            width: 18px;
-            height: 18px;
-        }
-
         .user-handle {
             font-size: 14px;
             color: var(--hint-color);
             margin-top: 2px;
+        }
+
+        .app-title {
+            padding: 0 20px 10px;
+            font-size: 13px;
+            color: var(--hint-color);
+            font-weight: 500;
         }
 
         /* Main Content */
@@ -113,6 +107,7 @@
             padding: 24px;
             text-align: center;
             transition: all 0.3s ease;
+            position: relative;
         }
 
         .card-icon {
@@ -133,6 +128,17 @@
             color: var(--hint-color);
             margin-bottom: 24px;
             line-height: 1.5;
+        }
+
+        .privacy-note {
+            font-size: 12px;
+            color: var(--hint-color);
+            margin-top: 16px;
+            line-height: 1.4;
+            opacity: 0.8;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.03);
+            border-radius: 8px;
         }
 
         /* Buttons */
@@ -161,18 +167,25 @@
             color: var(--button-text-color);
         }
 
-        .btn-secondary {
-            background-color: transparent;
+        /* Logout Top Right Button */
+        .btn-logout-icon {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: none;
+            border: none;
             color: var(--hint-color);
-            padding: 12px;
-            font-size: 14px;
+            padding: 8px;
+            cursor: pointer;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .btn-close {
-            background-color: var(--surface-color);
-            color: var(--text-color);
-            margin-top: auto;
-            /* Push to bottom */
+        .btn-logout-icon:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+            color: var(--error-color);
         }
 
         /* States */
@@ -236,6 +249,8 @@
         </div>
     </div>
 
+    <div class="app-title">@DriveItBot - Upload files to Google Drive</div>
+
     <!-- Main Content -->
     <div class="main-content">
 
@@ -261,25 +276,45 @@
                 <path d="m69.85 55.45h-35.75l-11.8 20.4 5.75 2.15z" fill="#2684fc" />
             </svg>
             <h2 class="card-title">Setup Google Drive</h2>
-            <p class="card-desc">Link your account to enable automatic file processing. We only ask for permission to
-                manage files created by this bot.</p>
+            <p class="card-desc">Link your account to enable automatic file processing.</p>
             <a href="#" id="btn-connect" class="btn btn-primary">Connect Account</a>
+
+            <div class="privacy-note">
+                Security Note: DriveItBot can only access files you explicitly send to it. Your existing Drive files
+                remain private and secure.
+            </div>
         </div>
 
         <!-- Connected State -->
         <div id="state-connected" class="status-card state-connected hidden">
+            <!-- Unlink Button (Top Right) -->
+            <button id="btn-logout" class="btn-logout-icon" title="Unlink Account">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                    <line x1="12" y1="2" x2="12" y2="12"></line>
+                </svg>
+            </button>
+
             <svg class="card-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <h2 class="card-title">System Active</h2>
-            <p class="card-desc">Your Google Drive is connected and ready to receive files.</p>
+            <h2 class="card-title">Connected to Google Drive</h2>
 
             <div id="display-email" class="email-display">user@gmail.com</div>
 
-            <p class="card-desc" style="font-size: 13px;">To upload, simply send files to the bot chat.</p>
+            <div class="p-5 rounded-lg text-sm text-center mb-6"
+                style="background-color: rgba(52, 211, 153, 0.1); color: #34d399;">
+                Send files to <a href="#"
+                    onclick="Telegram.WebApp.openTelegramLink('https://t.me/DriveItBot', {force_request: true}); return false;"
+                    class="font-bold underline hover:opacity-80">@DriveItBot</a> to upload!
+            </div>
 
-            <button id="btn-logout" class="btn btn-secondary">Unlink Account</button>
+            <div class="privacy-note">
+                DriveItBot can only access files you explicitly send to it. Your existing Drive files remain private and
+                secure.
+            </div>
         </div>
 
         <!-- Error State -->
@@ -292,8 +327,7 @@
 
     <!-- Footer -->
     <div class="footer">
-        <button onclick="Telegram.WebApp.close()" class="btn btn-close">Close Manager</button>
-        <div style="margin-top: 12px; font-size: 10px; color: var(--hint-color); opacity: 0.6;">v1.2.1 (Dashboard)</div>
+        <div style="margin-top: 12px; font-size: 10px; color: var(--hint-color); opacity: 0.6;">v1.2.2 (Dashboard)</div>
     </div>
 
     <script>
@@ -331,15 +365,11 @@
                     avatarHtml = `<img src="${user.photo_url}" class="avatar" alt="Avatar">`;
                 }
 
-                const premiumIcon = user.is_premium ?
-                    `<svg class="premium-badge" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.5 7h7.5l-6 4.5 2.5 7.5-6-4.5-6 4.5 2.5-7.5-6-4.5h7.5z"/></svg>` : '';
-
                 this.header.innerHTML = `
                     ${avatarHtml}
                     <div class="user-details">
                         <div class="user-name-row">
                             <span class="user-name">${user.first_name} ${user.last_name || ''}</span>
-                            ${premiumIcon}
                         </div>
                         <div class="user-handle">${user.username ? '@' + user.username : ''}</div>
                     </div>
