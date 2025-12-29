@@ -304,7 +304,8 @@
 
                     <div class="p-5 rounded-lg text-sm text-center mb-6"
                         style="background-color: rgba(52, 211, 153, 0.1); color: #34d399;">
-                        Send files to <a href="#" onclick="Telegram.WebApp.close(); return false;"
+                        Send files to <a href="#"
+                            onclick="Telegram.WebApp.openTelegramLink('https://t.me/DriveItBot', {force_request: true}); return false;"
                             class="font-bold underline hover:opacity-80">@DriveItBot</a> to upload!
                     </div>
 
@@ -321,7 +322,7 @@
             style="background-color: rgba(248, 113, 113, 0.1); color: #f87171;"></div>
 
         <div class="mt-8 text-center">
-            <span class="text-xs theme-hint opacity-50">v1.1.8</span>
+            <span class="text-xs theme-hint opacity-50">v1.1.9</span>
         </div>
     </div>
 
