@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
 export default defineConfig({
+    base: '/driveit_v2/',
     build: {
         outDir: '../docs',
         emptyOutDir: true,
