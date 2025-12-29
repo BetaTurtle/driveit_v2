@@ -10,6 +10,7 @@ export default defineConfig({
             input: {
                 landing: resolve(__dirname, 'landing.html'),
                 redir: resolve(__dirname, 'redir.html'),
+                test: resolve(__dirname, 'test.html'),
             },
         },
     },
