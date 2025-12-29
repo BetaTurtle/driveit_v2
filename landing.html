@@ -293,7 +293,7 @@
     <!-- Footer -->
     <div class="footer">
         <button onclick="Telegram.WebApp.close()" class="btn btn-close">Close Manager</button>
-        <div style="margin-top: 12px; font-size: 10px; color: var(--hint-color); opacity: 0.6;">v1.2.0 (Dashboard)</div>
+        <div style="margin-top: 12px; font-size: 10px; color: var(--hint-color); opacity: 0.6;">v1.2.1 (Dashboard)</div>
     </div>
 
     <script>
@@ -443,14 +443,33 @@
                         };
                     }
 
+                    // Update DB
                     await fbDb.collection('users').doc(user.uid).set(userData, { merge: true });
 
-                    if (!isUiUpdated && data.google?.email) {
-                        isUiUpdated = true;
-                        UI.showState('connected', { email: data.google.email });
+                    // Critical Fix: If UI is not updated yet, we must check DB now
+                    // This handles the case where Backend wins (Optimistic) but user didn't have Google info in payload
+                    if (!isUiUpdated) {
+                        const doc = await fbDb.collection('users').doc(user.uid).get();
+                        const email = doc.data()?.google_email;
+                        if (email) {
+                            if (!isUiUpdated) {
+                                isUiUpdated = true;
+                                UI.showState('connected', { email: email });
+                            }
+                        } else {
+                            if (!isUiUpdated) {
+                                isUiUpdated = true;
+                                UI.showState('disconnected');
+                            }
+                        }
                     }
                 } catch (e) {
                     console.error("Background sign-in failed:", e);
+                    if (!isUiUpdated) {
+                        // If sign-in fails entirely, we probably need to retry or show disconnected
+                        // But for now, show error
+                        UI.showState('error', "Sign-in Failed: " + e.message);
+                    }
                 }
             };
 
