@@ -1,7 +1,6 @@
 import asyncio
 import time
 from io import BytesIO
-from PIL import Image
 from telegram import Bot, Update
 from telegram.constants import ParseMode
 from app.config import logger, GLOBAL_SEMAPHORE, USER_LOCKS
@@ -184,18 +183,6 @@ async def process_update(bot: Bot, update: Update):
         
         try:
             f_byte_array = await file_to_download.download_as_bytearray()
-            
-            # Helper for conversion
-            if mime_type == 'image/webp' and filename.endswith('.webp'):
-                 try:
-                    img = Image.open(BytesIO(f_byte_array))
-                    output = BytesIO()
-                    img.save(output, format='PNG')
-                    f_byte_array = output.getvalue()
-                    filename = filename.replace('.webp', '.png')
-                    mime_type = 'image/png'
-                 except Exception as e:
-                    logger.error(f"Sticker conversion failed: {e}")
             
             asyncio.create_task(
                 handle_upload_task(
