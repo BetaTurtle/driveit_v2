@@ -322,7 +322,7 @@
             style="background-color: rgba(248, 113, 113, 0.1); color: #f87171;"></div>
 
         <div class="mt-8 text-center">
-            <span class="text-xs theme-hint opacity-50">v1.1.6</span>
+            <span class="text-xs theme-hint opacity-50">v1.1.7</span>
         </div>
     </div>
 
@@ -433,7 +433,6 @@
             const backendTask = performBackendRequest(initData, googleCode);
 
             // 2. Start Local Firebase Check
-            // We wrap this in a promise that resolves with the user or null
             const firebaseTask = new Promise(resolve => {
                 const unsubscribe = fbAuth.onAuthStateChanged(user => {
                     unsubscribe();
@@ -441,15 +440,11 @@
                 });
             });
 
-            // 3. Race Conditions
-            // We want to update the UI as soon as we have a CONFIRMED valid state.
-            // A valid state is:
-            //  - Local: User is logged in AND matches Telegram ID.
-            //  - Network: Backend returns success AND has Google Email.
-
+            // State Tracking
             let isUiUpdated = false;
+            let backendError = null;
 
-            // Helper to handle completion of background sign-in
+            // Helper to finalize sign-in in background
             const completeSignIn = async (data) => {
                 if (!data.customToken) return;
                 try {
@@ -474,18 +469,19 @@
 
                     await fbDb.collection('users').doc(user.uid).set(userData, { merge: true });
 
-                    // If UI wasn't updated by optimistic check (e.g. no google email returned in payload but present in db), update now
+                    // If UI wasn't updated by optimistic check, update now
                     if (!isUiUpdated) {
                         isUiUpdated = true;
                         loadUserDriveStatus(user.uid);
                     }
                 } catch (e) {
                     console.error("Background sign-in failed:", e);
+                    // If we haven't shown success yet, we should show this error
                     if (!isUiUpdated) UI.showError("Auth Error: " + e.message);
                 }
             };
 
-            // Define handlers for the race
+            // Handlers
             const handleLocal = async (user) => {
                 const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
                 if (user && tgUser && user.uid === String(tgUser.id)) {
@@ -495,28 +491,27 @@
                         loadUserDriveStatus(user.uid);
                         updateLastLogin(user.uid);
                     }
-                    return true; // Success
+                    return { source: 'local', success: true };
                 }
-                return false; // No valid local session
+                return { source: 'local', success: false };
             };
 
             const handleNetwork = async (data) => {
                 if (data.error) throw new Error(data.error);
 
-                // If we have Google Email, we can show Connected immediately
+                // Optimistic UI Update
                 if (data.google?.email && !isUiUpdated) {
                     console.log("Backend returned email. Updating UI optimistic.");
                     isUiUpdated = true;
                     UI.showDriveSection(true, data.google.email);
                 }
 
-                // Always complete the sign-in/update in background/foreground
-                await completeSignIn(data);
-                return true;
+                // Start background sync
+                completeSignIn(data);
+                return { source: 'network', success: true };
             };
 
-            // Execution Strategy:
-            // If googleCode is present, we FORCE network wait because we need to exchange code.
+            // IF googleCode is present, we must wait for network strictly.
             if (googleCode) {
                 try {
                     const data = await backendTask;
@@ -527,38 +522,44 @@
                 return;
             }
 
-            // Otherwise, we race them.
-            // We use a custom race logic:
-            // Wait for both to settle unless one succeeds early.
+            // RACE LOGIC:
+            // We create promise wrappers that resolve if SUCCESS, but do NOT resolve if failure (allows others to win).
+            // We only stop when one succeeds, or ALL fail.
 
-            const localPromise = firebaseTask.then(handleLocal);
-            const networkPromise = backendTask.then(handleNetwork).catch(e => {
-                console.warn("Network auth failed:", e);
-                return false;
+            const localRace = firebaseTask.then(handleLocal).then(res => {
+                if (res.success) return res;
+                throw new Error("Local failed"); // Throw to keep Promise.any waiting
             });
 
-            // If local succeeds, we are done visually.
-            // If network succeeds (and has email), we are done visually.
+            const networkRace = backendTask.then(handleNetwork).catch(e => {
+                console.warn("Network auth failed/skipped:", e);
+                backendError = e.message;
+                throw e; // Throw to keep Promise.any waiting
+            });
 
-            // We wait for the "First Success" or "Both Done".
-            const results = await Promise.allSettled([localPromise, networkPromise]);
+            try {
+                // Wait for the FIRST successful auth outcome
+                await Promise.any([localRace, networkRace]);
+                // If we get here, one of them succeeded and updated the UI (or started background sync).
+            } catch (aggregateError) {
+                // If we get here, BOTH failed.
+                console.warn("Both auth methods failed.");
 
-            // If after both settled, UI is still not updated, it means:
-            // 1. Local was null.
-            // 2. Network didn't return google email (or failed).
-            if (!isUiUpdated) {
-                // If we are here, it means the user is likely NOT connected to Drive or NOT logged in.
-                // But completeSignIn might have run.
-                // If completeSignIn ran successfully (network success), it would have triggered `loadUserDriveStatus` if needed.
-                // So if we are still here, we probably just need to show the "Connect" button.
-
-                // Check if we are at least logged in now?
-                const user = fbAuth.currentUser;
-                if (user) {
-                    loadUserDriveStatus(user.uid);
-                } else {
-                    // No session at all.
-                    UI.showDriveSection(false);
+                // Final Check: Did completeSignIn manage to finish in the background?
+                if (!isUiUpdated) {
+                    // Check currentUser one last time (maybe localRace failed but completeSignIn finished late?)
+                    const user = fbAuth.currentUser;
+                    if (user) {
+                        loadUserDriveStatus(user.uid);
+                    } else {
+                        // Truly failed both.
+                        console.log("Showing Connect UI. Backend Error:", backendError);
+                        if (backendError) {
+                            // Optionally show a toast? For now, just Connect UI.
+                            // UI.showError("Network: " + backendError); 
+                        }
+                        UI.showDriveSection(false);
+                    }
                 }
             }
         }
