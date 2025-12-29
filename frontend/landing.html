@@ -55,7 +55,10 @@
     <div id="state-connected" class="status-card state-connected hidden">
       <h2 class="card-title" style="margin-top: 10px;">Connected to Google Drive</h2>
       <div id="display-email" class="email-display">user@gmail.com</div>
-      <p class="card-desc">Send files to @DriveItBot to upload to your Google Drive.</p>
+      <p class="card-desc">Send files to <a href="#"
+          onclick="Telegram.WebApp.openTelegramLink('https://t.me/DriveItBot', {force_request: true}); return false;"
+          style="color: var(--link-color); text-decoration: none; font-weight: bold;">@DriveItBot</a> to upload to your
+        Google Drive.</p>
     </div>
 
     <!-- Error State -->
