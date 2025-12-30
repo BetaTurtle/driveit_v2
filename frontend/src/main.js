@@ -83,7 +83,7 @@ const UI = {
     // Update Progress Bar
     const progressPercent = Math.min(100, (dailyBytes / FREE_LIMIT_BYTES) * 100);
     this.progressBar.style.width = `${progressPercent}%`;
-    this.dailyUsageText.textContent = `${(dailyBytes / (1024 * 1024)).toFixed(1)} MB / 100 MB used`;
+    this.dailyUsageText.textContent = `${formatBytes(dailyBytes)} / 100 MB used`;
 
     if (paidAllowance > 0) {
       this.paidAllowanceText.style.display = 'inline';
