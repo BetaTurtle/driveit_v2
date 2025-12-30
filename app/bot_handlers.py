@@ -157,7 +157,7 @@ async def process_update(bot: Bot, update: Update):
             
             await bot.send_message(
                 chat_id=update.message.chat_id,
-                text=f"✨ **Purchase Confirmed!**\n\nAdded **{gb} GB** of lifetime upload allowance to your account.\n\nThank you for supporting DriveIt! 🚀",
+                text=f"✨ **Purchase Confirmed!**\n\nAdded **{gb:.2f} GB** of lifetime upload allowance to your account.\n\nThank you for supporting DriveIt! 🚀",
                 parse_mode=ParseMode.MARKDOWN
             )
         except Exception as e:
