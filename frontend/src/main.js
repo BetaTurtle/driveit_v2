@@ -1,6 +1,4 @@
-import { auth, db, CONFIG } from './firebase-config';
-import { onAuthStateChanged, signInWithCustomToken, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp, deleteField } from 'firebase/firestore';
+import { CONFIG } from './config';
 
 // UI Controller
 const UI = {
@@ -32,13 +30,13 @@ const UI = {
   },
 
   showState(stateName, data = null) {
-    // Hide all
+    // Hide all contents
     this.stateLoading.classList.add('hidden');
     this.stateDisconnected.classList.add('hidden');
     this.stateConnected.classList.add('hidden');
     this.stateError.classList.add('hidden');
 
-    // Toggle Logout Button
+    // Toggle Logout Button visibility
     if (stateName === 'connected') {
       this.btnLogout.classList.remove('hidden');
     } else {
@@ -56,7 +54,7 @@ const UI = {
       };
     } else if (stateName === 'connected') {
       this.stateConnected.classList.remove('hidden');
-      this.displayEmail.textContent = data?.google_email || data?.email || 'Unknown Email';
+      this.displayEmail.textContent = data?.google_email || 'Unknown Email';
       this.renderStats(data?.usage);
     } else if (stateName === 'error') {
       this.stateError.classList.remove('hidden');
@@ -145,146 +143,30 @@ function buildAuthUrl() {
 }
 
 // ---------------------------------------------------------
-// AUTHENTICATION LOGIC (Optimized)
+// AUTHENTICATION LOGIC (Stateless via Backend)
 // ---------------------------------------------------------
 async function authenticate(initData, googleCode) {
   UI.showState('loading');
 
-  // 1. Optimistic Backend Request
-  const backendTask = callBackend('/authenticate', {
-    initData,
-    googleAuth: googleCode ? { code: googleCode, redirect_uri: CONFIG.auth.redirectUri } : undefined
-  });
-
-  // 2. Local Session Check
-  const firebaseTask = new Promise(resolve => {
-    const unsubscribe = onAuthStateChanged(auth, user => {
-      unsubscribe();
-      resolve(user);
-    });
-  });
-
-  let isUiUpdated = false;
-  let backendError = null;
-
-  // Background Finalizer
-  const completeSignIn = async (data) => {
-    if (!data.customToken) return;
-    try {
-      await signInWithCustomToken(auth, data.customToken);
-      const user = auth.currentUser;
-
-      const tgUser = window.Telegram.WebApp.initDataUnsafe.user;
-      const userRef = doc(db, 'users', user.uid);
-
-      await setDoc(userRef, {
-        telegram_id: tgUser.id,
-        last_login: serverTimestamp(),
-        user: tgUser
-      }, { merge: true });
-
-      // If UI is still not updated (race condition), check DB
-      if (!isUiUpdated) {
-        const docSnap = await getDoc(userRef);
-        isUiUpdated = true;
-        if (docSnap.data()?.google_email) {
-          UI.showState('connected', docSnap.data());
-        } else {
-          UI.showState('disconnected');
-        }
-      }
-    } catch (e) {
-      console.error("Background sign-in failed:", e);
-      if (!isUiUpdated) {
-        UI.showState('error', "Sign-in Failed: " + e.message);
-      }
-    }
-  };
-
-  // Handlers
-  const handleLocal = async (user) => {
-    const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
-    if (user && tgUser && user.uid === String(tgUser.id)) {
-      // Check local DB/Cache for email
-      if (!isUiUpdated) {
-        try {
-          const userRef = doc(db, 'users', user.uid);
-          const docSnap = await getDoc(userRef);
-          const email = docSnap.data()?.google_email;
-          if (email) {
-            console.log("Local session valid. Updating UI.");
-            isUiUpdated = true;
-            UI.showState('connected', docSnap.data());
-
-            // Update last login in bg
-            setDoc(userRef, {
-              last_login: serverTimestamp(),
-              user: tgUser
-            }, { merge: true });
-
-            return { source: 'local', success: true };
-          }
-        } catch (e) { console.warn("Local DB fetch failed", e); }
-      }
-    }
-    return { source: 'local', success: false };
-  };
-
-  const handleNetwork = async (data) => {
-    if (data.error) throw new Error(data.error);
-
-    if (data.user && !isUiUpdated) {
-      console.log("Backend success. Updating UI.");
-      isUiUpdated = true;
-      UI.showState('connected', data.user);
-    }
-
-    completeSignIn(data);
-    return { source: 'network', success: true };
-  };
-
-  // Logic Flow
-  if (googleCode) {
-    try {
-      const data = await backendTask;
-      await handleNetwork(data);
-    } catch (e) {
-      UI.showState('error', e.message);
-    }
-    return;
-  }
-
-  const localRace = firebaseTask.then(handleLocal).then(res => {
-    if (res.success) return res;
-    throw new Error("Local failed");
-  });
-
-  const networkRace = backendTask.then(handleNetwork).catch(e => {
-    backendError = e.message;
-    throw e;
-  });
-
   try {
-    await Promise.any([localRace, networkRace]);
-  } catch (aggregateError) {
-    // Both Failed
-    if (!isUiUpdated) {
-      // Double check current user just in case
-      const user = auth.currentUser;
-      if (user) {
-        // Fallback attempt to read db
-        handleLocal(user).then(res => {
-          if (!res.success) UI.showState('disconnected');
-        });
-      } else {
-        UI.showState('disconnected');
-      }
+    const data = await callBackend('/authenticate', {
+      initData,
+      googleAuth: googleCode ? { code: googleCode, redirect_uri: CONFIG.auth.redirectUri } : undefined
+    });
+
+    if (data.user && data.user.google_email) {
+      UI.showState('connected', data.user);
+    } else {
+      UI.showState('disconnected');
     }
+  } catch (e) {
+    console.error("Authentication failed:", e);
+    UI.showState('error', "Authentication Failed: " + e.message);
   }
 }
 
 async function callBackend(path, payload) {
-  const baseUrl = CONFIG.auth.backend.replace('/authenticate', '');
+  const baseUrl = CONFIG.auth.backend;
   const res = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -301,7 +183,6 @@ async function logout() {
     UI.showState('loading');
     const initData = window.Telegram?.WebApp?.initData;
     await callBackend('/disconnect', { initData });
-    await signOut(auth);
     window.location.reload();
   } catch (err) {
     UI.showState('error', err.message);
