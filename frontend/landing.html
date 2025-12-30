@@ -62,7 +62,23 @@
 
       <div id="usage-stats-container"
         style="margin-top: 24px; border-top: 1px solid rgba(0,0,0,0.05); padding-top: 16px; display: none;">
-        <h3 class="card-title" style="font-size: 15px; margin-bottom: 12px; text-align: left;">Usage Statistics</h3>
+        <h3 class="card-title" style="font-size: 15px; margin-bottom: 8px; text-align: left;">Daily Upload Limit</h3>
+
+        <div id="daily-usage-info" style="margin-bottom: 16px;">
+          <div
+            style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; opacity: 0.8;">
+            <span id="daily-usage-text">0 MB / 100 MB used</span>
+            <span id="paid-allowance-text" style="display: none;">+ 0 MB paid</span>
+          </div>
+          <div class="progress-container"
+            style="height: 8px; background: rgba(0,0,0,0.06); border-radius: 4px; overflow: hidden;">
+            <div id="usage-progress-bar" class="progress-bar"
+              style="width: 0%; height: 100%; background: var(--tg-theme-button-color, #2481cc); transition: width 0.3s ease;">
+            </div>
+          </div>
+        </div>
+
+        <h3 class="card-title" style="font-size: 15px; margin-bottom: 12px; text-align: left;">Lifetime Statistics</h3>
         <div class="stat-row">
           <span>Total Files</span>
           <span id="stat-total-files" style="font-weight: bold;">0</span>
@@ -72,6 +88,11 @@
           <span id="stat-total-size" style="font-weight: bold;">0 B</span>
         </div>
         <div class="stat-grid" id="stat-breakdown" style="margin-top: 12px;"></div>
+
+        <button id="btn-topup" class="btn"
+          style="margin-top: 20px; width: 100%; background: #f1c40f; color: #000; font-weight: bold; border: none; padding: 12px; border-radius: 8px; cursor: pointer;">
+          🌟 Top-up with Stars
+        </button>
       </div>
     </div>
 
@@ -89,7 +110,7 @@
 
   <!-- Footer -->
   <div class="footer">
-    <div style="margin-top: 12px; font-size: 10px; color: var(--hint-color); opacity: 0.6;">v2.0.3</div>
+    <div style="margin-top: 12px; font-size: 10px; color: var(--hint-color); opacity: 0.6;">v2.0.6</div>
   </div>
 
   <script type="module" src="/src/main.js"></script>

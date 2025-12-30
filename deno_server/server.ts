@@ -326,6 +326,34 @@ async function handler(req: Request): Promise<Response> {
             });
         }
 
+        // --- CREATE INVOICE ---
+        if (url.pathname === "/create-invoice") {
+            const gb = parseInt(body.gb) || 5;
+            const stars = gb * 50;
+            const title = `${gb} GB Lifetime Top-up`;
+            const description = `Add ${gb} GB to your lifetime upload allowance for DriveIt.`;
+
+            const resp = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/createInvoiceLink`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title: title,
+                    description: description,
+                    payload: JSON.stringify({ user_id: telegramUserId, gb: gb }),
+                    provider_token: "", // Empty for Stars
+                    currency: "XTR",
+                    prices: [{ label: title, amount: stars }]
+                })
+            });
+
+            const data = await resp.json();
+            if (!data.ok) throw new Error(`Invoice failed: ${data.description}`);
+
+            return new Response(JSON.stringify({ invoiceLink: data.result }), {
+                status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
+            });
+        }
+
         // --- DISCONNECT ---
         if (url.pathname === "/disconnect") {
             const token = await getGoogleAccessToken();

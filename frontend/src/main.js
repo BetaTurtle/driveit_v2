@@ -12,6 +12,10 @@ const UI = {
   btnConnect: document.getElementById('btn-connect'),
   displayEmail: document.getElementById('display-email'),
   btnLogout: document.getElementById('btn-logout'),
+  btnTopup: document.getElementById('btn-topup'),
+  dailyUsageText: document.getElementById('daily-usage-text'),
+  progressBar: document.getElementById('usage-progress-bar'),
+  paidAllowanceText: document.getElementById('paid-allowance-text'),
 
   initUser(user) {
     // Render Profile Header
@@ -68,6 +72,22 @@ const UI = {
 
     // Always show container if we are connected, even if stats are 0
     container.style.display = 'block';
+
+    const FREE_LIMIT_BYTES = 100 * 1024 * 1024; // 100 MB
+    const dailyBytes = usage?.daily?.bytes || 0;
+    const paidAllowance = usage?.paid_allowance || 0;
+
+    // Update Progress Bar
+    const progressPercent = Math.min(100, (dailyBytes / FREE_LIMIT_BYTES) * 100);
+    this.progressBar.style.width = `${progressPercent}%`;
+    this.dailyUsageText.textContent = `${(dailyBytes / (1024 * 1024)).toFixed(1)} MB / 100 MB used`;
+
+    if (paidAllowance > 0) {
+      this.paidAllowanceText.style.display = 'inline';
+      this.paidAllowanceText.textContent = `+ ${formatBytes(paidAllowance)} paid remaining`;
+    } else {
+      this.paidAllowanceText.style.display = 'none';
+    }
 
     if (!usage) {
       // Reset to 0
@@ -199,6 +219,34 @@ if (!tg || !tg.initDataUnsafe?.user) {
   tg.expand();
   UI.initUser(tg.initDataUnsafe.user);
   UI.btnLogout.onclick = logout;
+  UI.btnTopup.onclick = async () => {
+    try {
+      UI.btnTopup.disabled = true;
+      UI.btnTopup.textContent = 'Generating Invoice...';
+
+      const res = await callBackend('/create-invoice', {
+        initData: tg.initData,
+        gb: 5 // Default for now
+      });
+
+      if (res.invoiceLink) {
+        tg.openInvoice(res.invoiceLink, (status) => {
+          if (status === 'paid') {
+            tg.showAlert('Payment Successful! Your allowance is being updated.');
+            authenticate(tg.initData); // Refresh stats
+          } else if (status === 'failed') {
+            tg.showAlert('Payment failed or cancelled.');
+          }
+          UI.btnTopup.disabled = false;
+          UI.btnTopup.innerHTML = '🌟 Top-up with Stars';
+        });
+      }
+    } catch (err) {
+      tg.showAlert('Error: ' + err.message);
+      UI.btnTopup.disabled = false;
+      UI.btnTopup.innerHTML = '🌟 Top-up with Stars';
+    }
+  };
 
   const startParam = tg.initDataUnsafe.start_param;
   const googleCode = startParam ? decodeBase64Url(startParam) : null;

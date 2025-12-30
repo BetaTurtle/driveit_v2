@@ -4,23 +4,36 @@ Since DriveIt solves a specific convenience problem (saving Telegram files to Go
 
 Here are several models you can adopt:
 
-## 1. Freemium Model (Recommended)
-The most common model for productivity tools. Offer a basic version for free and charge for "Pro" features.
+## 1. Pay-Per-Use (The "Top-up" Model)
+This is the simplest and most transparent model for utility bots.
 
-| Feature | Free Tier | Pro Tier ($X/month) |
-| :--- | :--- | :--- |
-| **File Size Limit** | Up to 50 MB | Up to 2 GB (Telegram's max) |
-| **Daily Uploads** | 5 files / day | Unlimited |
-| **Speed** | Standard queue | Priority processing |
-| **Organization** | Root folder only | Custom folder paths / Auto-sort by type |
-| **Accounts** | 1 Google Account | Multiple Google Accounts |
+### Tier Structure
+| Type | Limit | Reset | Price |
+| :--- | :--- | :--- | :--- |
+| **Free Tier** | 100 MB | Daily | $0 |
+| **Top-up (Small)** | 2 GB | Lifetime | **100 Stars** |
+| **Top-up (Large)** | 10 GB | Lifetime | **400 Stars** |
 
-**Why it works:** Users get hooked on the convenience of the free tier but hit friction (limits) eventually, prompting an upgrade.
+### Why this works:
+1. **Low Friction:** 100MB is enough for a few photos or documents. Users who want to save a video note or high-res photo will immediately hit the limit, prompting a small purchase.
+2. **Predictable Costs:** You only pay for what the user actually uploads.
+3. **High conversion:** Small amounts of Stars (100) are psychologically easy to spend for immediate convenience.
 
-## 2. Usage-Based / Credits
-Users buy "credits" or "bandwidth" to process files.
-- **Example:** $5 for 50GB of data transfer.
-- **Why it works:** Good for users who only need it occasionally for large files and don't want a subscription.
+### Safe Estimation: Stars per GB
+To cover costs (GCP Egress + CPU) while ensuring a healthy profit margin:
+
+> [!TIP]
+> **Recommended Rate: 50 Stars per 1 GB**
+> - **Revenue:** 50 Stars (~$1.00 USD).
+> - **Telegram Cut (30%):** You keep ~$0.70.
+> - **Your Cost (GCP Egress):** ~$0.15.
+> - **Profit:** **$0.55 per GB.**
+
+### 5GB Bundle Comparison:
+- **Cost to you:** ~$0.75.
+- **Retail Price:** **200 Stars** (~$4.00).
+- **Your Net Profit:** **~$2.05.**
+
 
 ## 3. Lifetime License
 A one-time payment for permanent access.
@@ -33,11 +46,48 @@ Target heavy users or channels.
 - **Team Drives:** Support for Google Workspace Shared Drives.
 - **White Labeling:** Allow them to set their own bot name/icon (complex to implement).
 
-## Implementation Steps
-1.  **Payment Gateway:** Integrate **Telegram Stars** (native payment for digital goods in Telegram) or **Stripe**.
-2.  **User Tier Tracking:** Add a `subscription_status` or `credits` field to your Firestore `users` collection.
-3.  **Gatekeeping Logic:** Update `server.ts` to check the user's tier before processing a file.
+## Technical Implementation
 
-## Next Steps
-- Decide on a pricing model.
-- I can help you implement the **Telegram Stars** payment system, which is the smoothest experience for users.
+### 1. Daily Usage Tracking (Firestore)
+To enforce the 100MB daily limit, we need to track usage with a date-check logic in `update_usage_stats`:
+
+```python
+# Proposed logic for app/services/firebase_service.py
+today = datetime.utcnow().strftime('%Y-%m-%d')
+user_data = doc_ref.get().to_dict()
+daily_data = user_data.get('usage', {}).get('daily', {})
+
+if daily_data.get('date') == today:
+    # Increment existing daily total
+    updates["usage.daily.bytes"] = firestore.Increment(file_size_bytes)
+else:
+    # Reset for a new day
+    updates["usage.daily.date"] = today
+    updates["usage.daily.bytes"] = file_size_bytes
+```
+
+### 2. Telegram Stars Transaction Flow
+The transaction is a handshake between the Mini App UI and the Bot API backend.
+
+1. **Initiation (Mini App)**:
+   - User clicks "Buy 5GB".
+   - Mini App calls your Deno/Python backend `/create-invoice`.
+2. **Generation (Backend)**:
+   - Backend calls Telegram Bot API `createInvoiceLink`.
+   - Returns a unique `https://t.me/$invoice_hash` link to the Mini App.
+3. **Payment (Telegram Native)**:
+   - Mini App calls `Telegram.WebApp.openInvoice(url)`.
+   - Telegram shows the native Star payment sheet.
+4. **Confirmation (Bot API)**:
+   - Telegram sends a `PreCheckoutQuery` to your bot.
+   - Telegram sends a `SuccessfulPayment` message to your bot.
+5. **Fulfillment (Backend)**:
+   - Bot detects the payment and increments the user's `usage.paid_allowance` in Firestore.
+
+### 3. Star Prices (Safe Estimates)
+
+| Data Amount | Star Price | Your Profit |
+| :--- | :--- | :--- |
+| **5 GB** | **250 Stars** | ~$2.75 |
+| **20 GB** | **800 Stars** | ~$9.00 |
+| **50 GB** | **1800 Stars** | ~$22.00 |

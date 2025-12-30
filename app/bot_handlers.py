@@ -1,11 +1,12 @@
 import asyncio
 import time
+import json
 from io import BytesIO
 from telegram import Bot, Update
 from telegram.constants import ParseMode
 from app.config import logger, GLOBAL_SEMAPHORE, USER_LOCKS
 from app.services.drive_service import upload_file_to_drive_sync
-from app.services.firebase_service import update_usage_stats
+from app.services.firebase_service import update_usage_stats, check_usage_limit, update_paid_allowance
 
 async def handle_upload_task(bot: Bot, chat_id: int, user_id: int, message_id: int, file_data: bytes, filename: str, mime_type: str, file_type: str, status_msg_id: int):
     """
@@ -137,6 +138,36 @@ def extract_file_info(message):
 
 async def process_update(bot: Bot, update: Update):
     """Process a single update."""
+    # 1. Handle Pre-Checkout Query (Stars Payment)
+    if update.pre_checkout_query:
+        await bot.answer_pre_checkout_query(update.pre_checkout_query.id, ok=True)
+        return
+
+    # 2. Handle Successful Payment (Stars Fulfillment)
+    if update.message and update.message.successful_payment:
+        payment = update.message.successful_payment
+        try:
+            payload = json.loads(payment.invoice_payload)
+            user_id = int(payload.get("user_id"))
+            gb = int(payload.get("gb"))
+            bytes_to_add = gb * 1024 * 1024 * 1024
+            
+            # Credit the user
+            update_paid_allowance(user_id, bytes_to_add)
+            
+            await bot.send_message(
+                chat_id=update.message.chat_id,
+                text=f"✨ **Purchase Confirmed!**\n\nAdded **{gb} GB** of lifetime upload allowance to your account.\n\nThank you for supporting DriveIt! 🚀",
+                parse_mode=ParseMode.MARKDOWN
+            )
+        except Exception as e:
+            logger.error(f"Payment fulfillment failed for user {update.message.from_user.id}: {e}")
+            await bot.send_message(
+                chat_id=update.message.chat_id,
+                text="❌ Payment was successful, but there was an error updating your allowance. Please contact support."
+            )
+        return
+
     if not update.message:
         return
 
@@ -154,6 +185,18 @@ async def process_update(bot: Bot, update: Update):
     # Handle Files
     file_info = extract_file_info(update.message)
     file_obj, filename, mime_type, file_type = file_info
+
+    if file_obj:
+        # Check Usage Limit
+        can_upload, limit_msg = check_usage_limit(user_id, file_obj.file_size)
+        if not can_upload:
+            # Send message with a link to top-up
+            await bot.send_message(
+                chat_id=chat_id, 
+                text=f"❌ {limit_msg}",
+                reply_to_message_id=update.message.message_id
+            )
+            return
 
     file_to_download = None
     
