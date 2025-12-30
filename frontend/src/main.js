@@ -151,7 +151,10 @@ async function authenticate(initData, googleCode) {
   UI.showState('loading');
 
   // 1. Optimistic Backend Request
-  const backendTask = performBackendRequest(initData, googleCode);
+  const backendTask = callBackend('/authenticate', {
+    initData,
+    googleAuth: googleCode ? { code: googleCode, redirect_uri: CONFIG.auth.redirectUri } : undefined
+  });
 
   // 2. Local Session Check
   const firebaseTask = new Promise(resolve => {
@@ -172,40 +175,22 @@ async function authenticate(initData, googleCode) {
       const user = auth.currentUser;
 
       const tgUser = window.Telegram.WebApp.initDataUnsafe.user;
-      const userData = {
+      const userRef = doc(db, 'users', user.uid);
+
+      await setDoc(userRef, {
         telegram_id: tgUser.id,
         last_login: serverTimestamp(),
         user: tgUser
-      };
+      }, { merge: true });
 
-      if (data.google?.email) {
-        userData.google_email = data.google.email;
-        userData.credentials = {
-          access_token: data.google.access_token,
-          refresh_token: data.google.refresh_token,
-          expires_in: data.google.expires_in,
-          obtained_at: Date.now()
-        };
-      }
-
-      // Update DB
-      const userRef = doc(db, 'users', user.uid);
-      await setDoc(userRef, userData, { merge: true });
-
-      // Critical Fix: If UI is not updated yet, check DB now
+      // If UI is still not updated (race condition), check DB
       if (!isUiUpdated) {
         const docSnap = await getDoc(userRef);
-        const email = docSnap.data()?.google_email;
-        if (email) {
-          if (!isUiUpdated) {
-            isUiUpdated = true;
-            UI.showState('connected', docSnap.data());
-          }
+        isUiUpdated = true;
+        if (docSnap.data()?.google_email) {
+          UI.showState('connected', docSnap.data());
         } else {
-          if (!isUiUpdated) {
-            isUiUpdated = true;
-            UI.showState('disconnected');
-          }
+          UI.showState('disconnected');
         }
       }
     } catch (e) {
@@ -248,10 +233,10 @@ async function authenticate(initData, googleCode) {
   const handleNetwork = async (data) => {
     if (data.error) throw new Error(data.error);
 
-    if (data.google?.email && !isUiUpdated) {
+    if (data.user && !isUiUpdated) {
       console.log("Backend success. Updating UI.");
       isUiUpdated = true;
-      UI.showState('connected', { email: data.google.email });
+      UI.showState('connected', data.user);
     }
 
     completeSignIn(data);
@@ -298,16 +283,12 @@ async function authenticate(initData, googleCode) {
   }
 }
 
-async function performBackendRequest(initData, googleCode) {
-  const authPayload = {
-    initData,
-    googleAuth: googleCode ? { code: googleCode, redirect_uri: CONFIG.auth.redirectUri } : undefined
-  };
-
-  const res = await fetch(CONFIG.auth.backend, {
+async function callBackend(path, payload) {
+  const baseUrl = CONFIG.auth.backend.replace('/authenticate', '');
+  const res = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(authPayload)
+    body: JSON.stringify(payload)
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || `Server error: ${res.status}`);
@@ -317,17 +298,11 @@ async function performBackendRequest(initData, googleCode) {
 async function logout() {
   if (!confirm('Are you sure you want to unlink your Google Drive?')) return;
   try {
-    const user = auth.currentUser;
     UI.showState('loading');
-    if (user) {
-      const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
-        google_email: deleteField(),
-        credentials: deleteField()
-      });
-      await signOut(auth);
-      window.location.reload();
-    }
+    const initData = window.Telegram?.WebApp?.initData;
+    await callBackend('/disconnect', { initData });
+    await signOut(auth);
+    window.location.reload();
   } catch (err) {
     UI.showState('error', err.message);
   }

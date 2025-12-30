@@ -162,6 +162,98 @@ async function createFirebaseCustomToken(uid: string): Promise<{ token?: string;
     }
 }
 
+// --- Firestore REST API Helpers ---
+async function getGoogleAccessToken(): Promise<string> {
+    if (!CACHED_FIREBASE_KEY) throw new Error("Firebase key not initialized.");
+
+    const now = Math.floor(Date.now() / 1000);
+    const jwt = await djwt.create(
+        { alg: "RS256", typ: "JWT" },
+        {
+            iss: FIREBASE_SERVICE_ACCOUNT_EMAIL,
+            scope: "https://www.googleapis.com/auth/datastore",
+            aud: "https://oauth2.googleapis.com/token",
+            iat: now,
+            exp: now + 3600,
+        },
+        CACHED_FIREBASE_KEY
+    );
+
+    const resp = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+            grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+            assertion: jwt,
+        }),
+    });
+
+    if (!resp.ok) throw new Error(`Google Access Token failed: ${await resp.text()}`);
+    const data = await resp.json();
+    return data.access_token;
+}
+
+async function getFirestoreDoc(collection: string, docId: string): Promise<any | null> {
+    const token = await getGoogleAccessToken();
+    const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/${collection}/${docId}`;
+    const resp = await fetch(url, {
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+
+    if (resp.status === 404) return null;
+    if (!resp.ok) throw new Error(`Firestore fetch failed: ${await resp.text()}`);
+
+    const data = await resp.json();
+    // Helper to extract fields from Firestore JSON format
+    const simplify = (obj: any) => {
+        const res: any = {};
+        if (!obj.fields) return res;
+        for (const [key, value] of Object.entries(obj.fields)) {
+            const val: any = value;
+            if (val.stringValue !== undefined) res[key] = val.stringValue;
+            else if (val.integerValue !== undefined) res[key] = parseInt(val.integerValue);
+            else if (val.doubleValue !== undefined) res[key] = parseFloat(val.doubleValue);
+            else if (val.booleanValue !== undefined) res[key] = val.booleanValue;
+            else if (val.mapValue !== undefined) res[key] = simplify(val.mapValue);
+            else if (val.timestampValue !== undefined) res[key] = val.timestampValue;
+        }
+        return res;
+    };
+    return simplify(data);
+}
+
+async function updateFirestoreDoc(collection: string, docId: string, data: any) {
+    const token = await getGoogleAccessToken();
+    const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/${collection}/${docId}?updateMask.fieldPaths=${Object.keys(data).join('&updateMask.fieldPaths=')}`;
+
+    // Helper to convert plain object to Firestore fields format
+    const format = (obj: any) => {
+        const fields: any = {};
+        for (const [key, val] of Object.entries(obj)) {
+            if (typeof val === "string") fields[key] = { stringValue: val };
+            else if (typeof val === "number") {
+                if (Number.isInteger(val)) fields[key] = { integerValue: val.toString() };
+                else fields[key] = { doubleValue: val };
+            }
+            else if (typeof val === "boolean") fields[key] = { booleanValue: val };
+            else if (val && typeof val === "object" && !Array.isArray(val)) fields[key] = { mapValue: { fields: format(val) } };
+        }
+        return fields;
+    };
+
+    const resp = await fetch(url, {
+        method: "PATCH",
+        headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ fields: format(data) })
+    });
+
+    if (!resp.ok) throw new Error(`Firestore update failed: ${await resp.text()}`);
+    return await resp.json();
+}
+
 // --- Request Handler ---
 async function handler(req: Request): Promise<Response> {
     const url = new URL(req.url);
@@ -171,7 +263,7 @@ async function handler(req: Request): Promise<Response> {
         return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
 
-    if (req.method !== "POST" || url.pathname !== "/authenticate") {
+    if (req.method !== "POST") {
         return new Response(JSON.stringify({ error: "Not Found" }), {
             status: 404, headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
         });
@@ -180,7 +272,6 @@ async function handler(req: Request): Promise<Response> {
     try {
         const body = await req.json();
         const initDataString = body.initData;
-        const googleAuth = body.googleAuth;
 
         if (!initDataString || typeof initDataString !== 'string') {
             throw new Error("Invalid initData");
@@ -195,20 +286,20 @@ async function handler(req: Request): Promise<Response> {
         }
 
         const userJson = validation.data.get("user");
-        const userData = JSON.parse(userJson || "{}");
-        if (!userData.id) throw new Error("No user ID in data");
+        const tgUser = JSON.parse(userJson || "{}");
+        if (!tgUser.id) throw new Error("No user ID in data");
+        const telegramUserId = String(tgUser.id);
 
-        const telegramUserId = String(userData.id);
-
-        // 2. Handle Google OAuth (if provided)
-        let googleTokenPayload: any = null;
-        if (googleAuth?.code) {
-            try {
+        // --- AUTHENTICATE ---
+        if (url.pathname === "/authenticate") {
+            // 2. Handle Google OAuth (if provided)
+            let googlePayload: any = null;
+            if (body.googleAuth?.code) {
                 const params = new URLSearchParams({
-                    code: googleAuth.code,
+                    code: body.googleAuth.code,
                     client_id: GOOGLE_OAUTH_CLIENT_ID!,
                     client_secret: GOOGLE_OAUTH_CLIENT_SECRET!,
-                    redirect_uri: googleAuth.redirect_uri,
+                    redirect_uri: body.googleAuth.redirect_uri,
                     grant_type: "authorization_code",
                 });
 
@@ -219,33 +310,76 @@ async function handler(req: Request): Promise<Response> {
                 });
 
                 if (tokenResp.ok) {
-                    googleTokenPayload = await tokenResp.json();
-
-                    // Get Email
-                    if (googleTokenPayload.access_token) {
-                        const userResp = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-                            headers: { "Authorization": `Bearer ${googleTokenPayload.access_token}` }
-                        });
-                        if (userResp.ok) {
-                            const userInfo = await userResp.json();
-                            googleTokenPayload.email = userInfo.email;
-                            googleTokenPayload.email_verified = userInfo.verified_email;
-                        }
+                    googlePayload = await tokenResp.json();
+                    const userResp = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+                        headers: { "Authorization": `Bearer ${googlePayload.access_token}` }
+                    });
+                    if (userResp.ok) {
+                        const userInfo = await userResp.json();
+                        googlePayload.email = userInfo.email;
                     }
                 } else {
                     console.warn("Google Auth failed", await tokenResp.text());
                 }
-            } catch (e) {
-                console.warn("Google Auth error", e);
             }
+
+            // 3. Update Firestore with user info and last_login
+            const updatePayload: any = {
+                telegram_id: parseInt(telegramUserId),
+                user: tgUser,
+                last_login: new Date().toISOString()
+            };
+
+            if (googlePayload?.email) {
+                updatePayload.google_email = googlePayload.email;
+                updatePayload.credentials = {
+                    access_token: googlePayload.access_token,
+                    refresh_token: googlePayload.refresh_token,
+                    expires_in: googlePayload.expires_in,
+                    obtained_at: Date.now()
+                };
+            }
+
+            // Sync with Firestore
+            await updateFirestoreDoc("users", telegramUserId, updatePayload);
+            const userDoc = await getFirestoreDoc("users", telegramUserId);
+
+            // 4. Generate Custom Token
+            const tokenResult = await createFirebaseCustomToken(telegramUserId);
+            if (tokenResult.error) throw new Error(tokenResult.error);
+
+            return new Response(JSON.stringify({
+                customToken: tokenResult.token,
+                user: userDoc
+            }), {
+                status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
+            });
         }
 
-        // 3. Generate Custom Token
-        const tokenResult = await createFirebaseCustomToken(telegramUserId);
-        if (tokenResult.error) throw new Error(tokenResult.error);
+        // --- DISCONNECT ---
+        if (url.pathname === "/disconnect") {
+            const token = await getGoogleAccessToken();
+            const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${telegramUserId}?updateMask.fieldPaths=credentials&updateMask.fieldPaths=google_email`;
 
-        return new Response(JSON.stringify({ customToken: tokenResult.token, google: googleTokenPayload }), {
-            status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
+            // Note: In Firestore REST API, setting fields to null deletes them in a PATCH with updateMask
+            const resp = await fetch(firestoreUrl, {
+                method: "PATCH",
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ fields: {} }) // updateMask defines what is "updated" (set to empty/null if missing from fields)
+            });
+
+            if (!resp.ok) throw new Error(`Disconnect failed: ${await resp.text()}`);
+
+            return new Response(JSON.stringify({ success: true }), {
+                status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
+            });
+        }
+
+        return new Response(JSON.stringify({ error: "Not Found" }), {
+            status: 404, headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
         });
 
     } catch (e: any) {
