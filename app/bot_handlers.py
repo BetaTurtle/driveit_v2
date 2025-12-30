@@ -165,9 +165,21 @@ async def process_update(bot: Bot, update: Update):
             # Credit the user & log transaction
             update_paid_allowance(user_id, bytes_to_add, payment_info)
             
+            # Helper for readable size
+            def human_readable_size(size_bytes):
+                if size_bytes == 0:
+                    return "0 B"
+                size_name = ("B", "KB", "MB", "GB", "TB")
+                i = int(math.floor(math.log(size_bytes, 1024)))
+                p = math.pow(1024, i)
+                s = round(size_bytes / p, 2)
+                return f"{s} {size_name[i]}"
+
+            readable_amount = human_readable_size(bytes_to_add)
+
             await bot.send_message(
                 chat_id=update.message.chat_id,
-                text=f"✨ **Purchase Confirmed!**\n\nAdded **{gb:.2f} GB** of lifetime upload allowance to your account.\n\nThank you for supporting DriveIt! 🚀\n\nRef: `{payment.telegram_payment_charge_id}`",
+                text=f"✨ **Purchase Confirmed!**\n\nAdded **{readable_amount}** of lifetime upload allowance to your account.\n\nThank you for supporting DriveIt! 🚀\n\nRef: `{payment.telegram_payment_charge_id}`",
                 parse_mode=ParseMode.MARKDOWN
             )
         except Exception as e:

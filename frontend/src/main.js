@@ -225,14 +225,13 @@ if (!tg || !tg.initDataUnsafe?.user) {
   if (UI.slider) {
     const updateSliderUI = () => {
       const stars = parseInt(UI.slider.value);
-      // Linear scale: 1 Star = 0.02 GB (20MB)
-      // 250 Stars = 5.00 GB
-      const gb = stars * 0.02;
-      const gbText = (gb < 0.1 ? gb.toFixed(3) : gb.toFixed(2)) + ' GB';
+      // Linear scale: 1 Star = 0.02 GB (20MB = 20 * 1024 * 1024 bytes)
+      const bytes = stars * 20 * 1024 * 1024;
+      const sizeText = formatBytes(bytes);
 
       UI.displayStars.textContent = stars;
-      UI.displayGB.textContent = gbText;
-      UI.btnPurchase.textContent = `Top-up ${gbText} for ${stars} Stars`;
+      UI.displayGB.textContent = sizeText;
+      UI.btnPurchase.textContent = `Top-up ${sizeText} for ${stars} Stars`;
     };
 
     UI.slider.oninput = updateSliderUI;
