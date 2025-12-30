@@ -15,6 +15,10 @@ const UI = {
   dailyUsageText: document.getElementById('daily-usage-text'),
   progressBar: document.getElementById('usage-progress-bar'),
   paidAllowanceText: document.getElementById('paid-allowance-text'),
+  slider: document.getElementById('topup-slider'),
+  displayStars: document.getElementById('display-stars'),
+  displayGB: document.getElementById('display-gb'),
+  btnPurchase: document.getElementById('btn-purchase-slider'),
 
   initUser(user) {
     // Render Profile Header
@@ -161,12 +165,8 @@ function buildAuthUrl() {
   return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
 }
 
-// ---------------------------------------------------------
-// AUTHENTICATION LOGIC (Stateless via Backend)
-// ---------------------------------------------------------
 async function authenticate(initData, googleCode) {
   UI.showState('loading');
-
   try {
     const data = await callBackend('/authenticate', {
       initData,
@@ -179,7 +179,6 @@ async function authenticate(initData, googleCode) {
       UI.showState('disconnected');
     }
   } catch (e) {
-    console.error("Authentication failed:", e);
     UI.showState('error', "Authentication Failed: " + e.message);
   }
 }
@@ -211,7 +210,6 @@ async function logout() {
 // Initialization
 const tg = window.Telegram?.WebApp;
 if (!tg || !tg.initDataUnsafe?.user) {
-  // Browser Dev Mode Fallback
   document.body.innerHTML = '<div style="padding:20px">Please open in Telegram</div>';
 } else {
   tg.ready();
@@ -219,41 +217,49 @@ if (!tg || !tg.initDataUnsafe?.user) {
   UI.initUser(tg.initDataUnsafe.user);
   UI.btnLogout.onclick = logout;
 
-  // Plan selection logic
-  document.querySelectorAll('.plan-card').forEach(card => {
-    card.onclick = async () => {
-      const gb = card.dataset.gb;
+  // Slider Logic
+  if (UI.slider) {
+    const updateSliderUI = () => {
+      const stars = parseInt(UI.slider.value);
+      const gb = Math.pow(stars / 250, 2) * 5;
+      UI.displayStars.textContent = stars;
+      UI.displayGB.textContent = (gb < 0.1 ? gb.toFixed(3) : gb.toFixed(2)) + ' GB';
+    };
 
+    UI.slider.oninput = updateSliderUI;
+    updateSliderUI();
+
+    UI.btnPurchase.onclick = async () => {
+      const stars = parseInt(UI.slider.value);
+      const gb = Math.pow(stars / 250, 2) * 5;
       try {
-        // Disable all cards during processing
-        const allCards = document.querySelectorAll('.plan-card');
-        allCards.forEach(c => c.classList.add('disabled'));
-        const originalHtml = card.innerHTML;
-        card.innerHTML = `<div class="plan-name">Wait...</div><div class="plan-gb">⏳</div><div class="plan-price">...</div>`;
+        UI.btnPurchase.disabled = true;
+        const originalText = UI.btnPurchase.textContent;
+        UI.btnPurchase.textContent = 'Generating...';
 
         const res = await callBackend('/create-invoice', {
           initData: tg.initData,
-          gb: parseInt(gb)
+          stars: stars,
+          gb: parseFloat(gb.toFixed(4))
         });
 
         if (res.invoiceLink) {
           tg.openInvoice(res.invoiceLink, (status) => {
             if (status === 'paid') {
-              tg.showAlert(`Success! ${gb} GB added to your allowance.`);
-              authenticate(tg.initData); // Refresh stats
+              tg.showAlert(`Success! Your allowance has been increased.`);
+              authenticate(tg.initData);
             }
-            // Re-enable and reset UI
-            allCards.forEach(c => c.classList.remove('disabled'));
-            card.innerHTML = originalHtml;
+            UI.btnPurchase.disabled = false;
+            UI.btnPurchase.textContent = originalText;
           });
         }
       } catch (err) {
         tg.showAlert('Error: ' + err.message);
-        document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('disabled'));
-        authenticate(tg.initData); // Reset
+        UI.btnPurchase.disabled = false;
+        UI.btnPurchase.textContent = 'Purchase Lifetime Allowance';
       }
     };
-  });
+  }
 
   const startParam = tg.initDataUnsafe.start_param;
   const googleCode = startParam ? decodeBase64Url(startParam) : null;

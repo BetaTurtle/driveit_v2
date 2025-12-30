@@ -328,10 +328,20 @@ async function handler(req: Request): Promise<Response> {
 
         // --- CREATE INVOICE ---
         if (url.pathname === "/create-invoice") {
-            const gb = parseInt(body.gb) || 5;
-            const stars = gb * 50;
-            const title = `${gb} GB Lifetime Top-up`;
-            const description = `Add ${gb} GB to your lifetime upload allowance for DriveIt.`;
+            let stars: number;
+            let gb: number;
+
+            if (body.stars) {
+                stars = parseInt(body.stars);
+                gb = parseFloat(body.gb);
+            } else {
+                // Fallback for old client versions
+                gb = parseInt(body.gb) || 5;
+                stars = gb * 50;
+            }
+
+            const title = `${gb.toFixed(2)} GB Lifetime Top-up`;
+            const description = `Add ${gb.toFixed(2)} GB to your lifetime upload allowance for DriveIt.`;
 
             const resp = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/createInvoiceLink`, {
                 method: "POST",

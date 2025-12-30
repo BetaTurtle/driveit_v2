@@ -89,26 +89,44 @@
         </div>
         <div class="stat-grid" id="stat-breakdown" style="margin-top: 12px;"></div>
 
-        <div class="topup-plans" style="margin-top: 24px;">
-          <h3 class="card-title" style="font-size: 14px; margin-bottom: 12px; opacity: 0.8; text-align: left;">Need More
-            Data? Top-up Lifetime Allowance</h3>
-          <div class="plans-grid">
-            <div class="plan-card" data-gb="2" data-stars="100">
-              <div class="plan-name">Basic</div>
-              <div class="plan-gb">2 GB</div>
-              <div class="plan-price">100 🌟</div>
+        <!-- Interactive Top-up Slider -->
+        <div class="topup-slider-container" style="margin-top: 24px; text-align: left;">
+          <h3 class="card-title" style="font-size: 14px; margin-bottom: 4px; opacity: 0.8;">Choose Your Top-up</h3>
+          <p style="font-size: 11px; color: var(--hint-color); margin-bottom: 20px;">Move the slider to choose custom
+            allowance.</p>
+
+          <div class="slider-display"
+            style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px;">
+            <div class="slider-val-box">
+              <span
+                style="display: block; font-size: 11px; text-transform: uppercase; color: var(--hint-color); font-weight: 700;">You
+                Pay</span>
+              <div style="font-size: 24px; font-weight: 800;"><span id="display-stars">100</span> <span
+                  style="font-size: 16px;">🌟</span></div>
             </div>
-            <div class="plan-card featured" data-gb="5" data-stars="250">
-              <div class="plan-name">Pro</div>
-              <div class="plan-gb">5 GB</div>
-              <div class="plan-price">250 🌟</div>
-            </div>
-            <div class="plan-card" data-gb="10" data-stars="450">
-              <div class="plan-name">Max</div>
-              <div class="plan-gb">10 GB</div>
-              <div class="plan-price">450 🌟</div>
+            <div class="slider-val-box" style="text-align: right;">
+              <span
+                style="display: block; font-size: 11px; text-transform: uppercase; color: var(--hint-color); font-weight: 700;">You
+                Get</span>
+              <div id="display-gb"
+                style="font-size: 24px; font-weight: 800; color: var(--tg-theme-button-color, #2481cc);">0.80 GB</div>
             </div>
           </div>
+
+          <div class="range-container">
+            <input type="range" id="topup-slider" min="1" max="250" value="100"
+              style="width: 100%; height: 6px; background: rgba(0,0,0,0.1); border-radius: 3px; outline: none; -webkit-appearance: none;">
+            <div
+              style="display: flex; justify-content: space-between; font-size: 10px; color: var(--hint-color); margin-top: 8px; font-weight: 600;">
+              <span>1 Star</span>
+              <span>250 Stars</span>
+            </div>
+          </div>
+
+          <button id="btn-purchase-slider" class="btn btn-primary"
+            style="margin-top: 24px; border-radius: 12px; height: 50px;">
+            Purchase Lifetime Allowance
+          </button>
         </div>
       </div>
     </div>
@@ -127,7 +145,7 @@
 
   <!-- Footer -->
   <div class="footer">
-    <div style="margin-top: 12px; font-size: 10px; color: var(--hint-color); opacity: 0.6;">v2.0.7</div>
+    <div style="margin-top: 12px; font-size: 10px; color: var(--hint-color); opacity: 0.6;">v2.0.10</div>
   </div>
 
   <script type="module" src="/src/main.js"></script>
