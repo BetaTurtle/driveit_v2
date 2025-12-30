@@ -144,8 +144,17 @@ def check_usage_limit(user_id: int, file_size_bytes: int) -> tuple[bool, str]:
             # To avoid complex tracking, let's actually DECREMENT paid_allowance when used.
             doc_ref.update({"usage.paid_allowance": firestore.Increment(-over_limit)})
             return True, ""
-            
-        return False, f"Daily limit reached (100MB). Remaining: {paid_allowance} bytes of paid top-up. 5GB Top-up available in dashboard!"
+        
+        # Helper for readable size
+        def sizeof_fmt(num, suffix="B"):
+            for unit in ["", "Ki", "Mi", "Gi", "Ti"]:
+                if abs(num) < 1024.0:
+                    return f"{num:3.1f}{unit}{suffix}"
+                num /= 1024.0
+            return f"{num:.1f}Pi{suffix}"
+
+        readable_remaining = sizeof_fmt(paid_allowance)
+        return False, f"Daily limit reached (100MB). Remaining: {readable_remaining} of paid top-up. Top-up available in dashboard!"
         
     except Exception as e:
         logger.error(f"Limit check failed for {user_id}: {e}")
