@@ -78,6 +78,21 @@
           </div>
         </div>
 
+        <!-- Paid Usage Bar (Darker Blue) -->
+        <div id="paid-usage-container" style="margin-bottom: 16px; display: none;">
+          <div
+            style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; color: #1e6ba5; font-weight: 600;">
+            <span>Paid Data Used Today</span>
+            <span id="paid-usage-val">0 B</span>
+          </div>
+          <div class="progress-container"
+            style="height: 6px; background: rgba(0,0,0,0.06); border-radius: 3px; overflow: hidden;">
+            <div id="paid-progress-bar" class="progress-bar"
+              style="width: 0%; height: 100%; background: #185a8c; transition: width 0.3s ease;">
+            </div>
+          </div>
+        </div>
+
         <h3 class="card-title" style="font-size: 15px; margin-bottom: 12px; text-align: left;">Lifetime Statistics</h3>
         <div class="stat-row">
           <span>Total Files</span>
@@ -145,7 +160,7 @@
 
   <!-- Footer -->
   <div class="footer">
-    <div style="margin-top: 12px; font-size: 10px; color: var(--hint-color); opacity: 0.6;">v2.0.15</div>
+    <div style="margin-top: 12px; font-size: 10px; color: var(--hint-color); opacity: 0.6;">v2.0.16</div>
   </div>
 
   <script type="module" src="/src/main.js"></script>

@@ -83,7 +83,25 @@ const UI = {
     // Update Progress Bar
     const progressPercent = Math.min(100, (dailyBytes / FREE_LIMIT_BYTES) * 100);
     this.progressBar.style.width = `${progressPercent}%`;
-    this.dailyUsageText.textContent = `${formatBytes(dailyBytes)} / 100 MB used`;
+    this.dailyUsageText.textContent = `${formatBytes(Math.min(dailyBytes, FREE_LIMIT_BYTES))} / 100 MB used`;
+
+    // Paid Usage Bar Logic
+    const paidUsedToday = Math.max(0, dailyBytes - FREE_LIMIT_BYTES);
+    const paidContainer = document.getElementById('paid-usage-container');
+    const paidText = document.getElementById('paid-usage-val');
+    const paidBar = document.getElementById('paid-progress-bar');
+
+    if (paidUsedToday > 0) {
+      paidContainer.style.display = 'block';
+      paidText.textContent = formatBytes(paidUsedToday);
+      // Width is relative to (Used + Remaining) to show impact on reservoir
+      const totalPaidPool = paidUsedToday + paidAllowance;
+      const paidPercent = totalPaidPool > 0 ? (paidUsedToday / totalPaidPool) * 100 : 0;
+      paidBar.style.width = `${paidPercent}%`;
+    } else {
+      paidContainer.style.display = 'none';
+      paidBar.style.width = '0%';
+    }
 
     if (paidAllowance > 0) {
       this.paidAllowanceText.style.display = 'inline';
