@@ -12,7 +12,6 @@ const UI = {
   btnConnect: document.getElementById('btn-connect'),
   displayEmail: document.getElementById('display-email'),
   btnLogout: document.getElementById('btn-logout'),
-  btnTopup: document.getElementById('btn-topup'),
   dailyUsageText: document.getElementById('daily-usage-text'),
   progressBar: document.getElementById('usage-progress-bar'),
   paidAllowanceText: document.getElementById('paid-allowance-text'),
@@ -219,34 +218,42 @@ if (!tg || !tg.initDataUnsafe?.user) {
   tg.expand();
   UI.initUser(tg.initDataUnsafe.user);
   UI.btnLogout.onclick = logout;
-  UI.btnTopup.onclick = async () => {
-    try {
-      UI.btnTopup.disabled = true;
-      UI.btnTopup.textContent = 'Generating Invoice...';
 
-      const res = await callBackend('/create-invoice', {
-        initData: tg.initData,
-        gb: 5 // Default for now
-      });
+  // Plan selection logic
+  document.querySelectorAll('.plan-card').forEach(card => {
+    card.onclick = async () => {
+      const gb = card.dataset.gb;
 
-      if (res.invoiceLink) {
-        tg.openInvoice(res.invoiceLink, (status) => {
-          if (status === 'paid') {
-            tg.showAlert('Payment Successful! Your allowance is being updated.');
-            authenticate(tg.initData); // Refresh stats
-          } else if (status === 'failed') {
-            tg.showAlert('Payment failed or cancelled.');
-          }
-          UI.btnTopup.disabled = false;
-          UI.btnTopup.innerHTML = '🌟 Top-up with Stars';
+      try {
+        // Disable all cards during processing
+        const allCards = document.querySelectorAll('.plan-card');
+        allCards.forEach(c => c.classList.add('disabled'));
+        const originalHtml = card.innerHTML;
+        card.innerHTML = `<div class="plan-name">Wait...</div><div class="plan-gb">⏳</div><div class="plan-price">...</div>`;
+
+        const res = await callBackend('/create-invoice', {
+          initData: tg.initData,
+          gb: parseInt(gb)
         });
+
+        if (res.invoiceLink) {
+          tg.openInvoice(res.invoiceLink, (status) => {
+            if (status === 'paid') {
+              tg.showAlert(`Success! ${gb} GB added to your allowance.`);
+              authenticate(tg.initData); // Refresh stats
+            }
+            // Re-enable and reset UI
+            allCards.forEach(c => c.classList.remove('disabled'));
+            card.innerHTML = originalHtml;
+          });
+        }
+      } catch (err) {
+        tg.showAlert('Error: ' + err.message);
+        document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('disabled'));
+        authenticate(tg.initData); // Reset
       }
-    } catch (err) {
-      tg.showAlert('Error: ' + err.message);
-      UI.btnTopup.disabled = false;
-      UI.btnTopup.innerHTML = '🌟 Top-up with Stars';
-    }
-  };
+    };
+  });
 
   const startParam = tg.initDataUnsafe.start_param;
   const googleCode = startParam ? decodeBase64Url(startParam) : null;
