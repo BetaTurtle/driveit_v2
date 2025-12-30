@@ -152,22 +152,12 @@ async def process_update(bot: Bot, update: Update):
             gb = float(payload.get("gb"))
             bytes_to_add = int(gb * 1024 * 1024 * 1024)
             
-            # Construct payment info for logging
-            payment_info = {
-                'charge_id': payment.telegram_payment_charge_id,
-                'amount': payment.total_amount,
-                'currency': payment.currency,
-                'gb': gb,
-                # Note: 'stars' is not directly in successful_payment, but total_amount is the price in stars (if currency is XTR)
-                'stars': payment.total_amount if payment.currency == 'XTR' else 0
-            }
-            
-            # Credit the user & log transaction
-            update_paid_allowance(user_id, bytes_to_add, payment_info)
+            # Credit the user
+            update_paid_allowance(user_id, bytes_to_add)
             
             await bot.send_message(
                 chat_id=update.message.chat_id,
-                text=f"✨ **Purchase Confirmed!**\n\nAdded **{gb:.2f} GB** of lifetime upload allowance to your account.\n\nThank you for supporting DriveIt! 🚀\n\n_Ref: {payment.telegram_payment_charge_id}_",
+                text=f"✨ **Purchase Confirmed!**\n\nAdded **{gb:.2f} GB** of lifetime upload allowance to your account.\n\nThank you for supporting DriveIt! 🚀",
                 parse_mode=ParseMode.MARKDOWN
             )
         except Exception as e:
