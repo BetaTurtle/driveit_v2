@@ -224,8 +224,11 @@ if (!tg || !tg.initDataUnsafe?.user) {
       // Linear scale: 1 Star = 0.02 GB (20MB)
       // 250 Stars = 5.00 GB
       const gb = stars * 0.02;
+      const gbText = (gb < 0.1 ? gb.toFixed(3) : gb.toFixed(2)) + ' GB';
+
       UI.displayStars.textContent = stars;
-      UI.displayGB.textContent = (gb < 0.1 ? gb.toFixed(3) : gb.toFixed(2)) + ' GB';
+      UI.displayGB.textContent = gbText;
+      UI.btnPurchase.textContent = `Top-up ${gbText} for ${stars} Stars`;
     };
 
     UI.slider.oninput = updateSliderUI;
@@ -234,6 +237,8 @@ if (!tg || !tg.initDataUnsafe?.user) {
     UI.btnPurchase.onclick = async () => {
       const stars = parseInt(UI.slider.value);
       const gb = stars * 0.02;
+      const gbText = (gb < 0.1 ? gb.toFixed(3) : gb.toFixed(2)) + ' GB';
+
       try {
         UI.btnPurchase.disabled = true;
         const originalText = UI.btnPurchase.textContent;
@@ -252,13 +257,15 @@ if (!tg || !tg.initDataUnsafe?.user) {
               authenticate(tg.initData);
             }
             UI.btnPurchase.disabled = false;
-            UI.btnPurchase.textContent = originalText;
+            // Restore dynamic text
+            UI.btnPurchase.textContent = `Top-up ${gbText} for ${stars} Stars`;
           });
         }
       } catch (err) {
         tg.showAlert('Error: ' + err.message);
         UI.btnPurchase.disabled = false;
-        UI.btnPurchase.textContent = 'Purchase Lifetime Allowance';
+        // Restore dynamic text
+        UI.btnPurchase.textContent = `Top-up ${gbText} for ${stars} Stars`;
       }
     };
   }
