@@ -149,8 +149,8 @@ async def process_update(bot: Bot, update: Update):
         try:
             payload = json.loads(payment.invoice_payload)
             user_id = int(payload.get("user_id"))
-            gb = int(payload.get("gb"))
-            bytes_to_add = gb * 1024 * 1024 * 1024
+            gb = float(payload.get("gb"))
+            bytes_to_add = int(gb * 1024 * 1024 * 1024)
             
             # Credit the user
             update_paid_allowance(user_id, bytes_to_add)
