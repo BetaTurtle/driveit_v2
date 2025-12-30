@@ -17,7 +17,7 @@ const PORT = parseInt(Deno.env.get("PORT") || "8000", 10);
 const GOOGLE_OAUTH_CLIENT_ID = Deno.env.get("GOOGLE_OAUTH_CLIENT_ID");
 const GOOGLE_OAUTH_CLIENT_SECRET = Deno.env.get("GOOGLE_OAUTH_CLIENT_SECRET");
 
-const FIREBASE_REST_API_URL = `https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit`;
+
 
 // --- Global Cache ---
 let CACHED_TELEGRAM_KEY: CryptoKey | null = null;
@@ -135,32 +135,7 @@ async function isTelegramDataValid(initDataString: string): Promise<{ isValid: b
     }
 }
 
-// --- Token Generation ---
-async function createFirebaseCustomToken(uid: string): Promise<{ token?: string; error?: string }> {
-    if (!CACHED_FIREBASE_KEY) return { error: "Server error: Firebase key not initialized." };
 
-    const now = Math.floor(Date.now() / 1000);
-    const expiry = now + 3600;
-
-    try {
-        const assertionToken = await djwt.create(
-            { alg: "RS256", typ: "JWT" },
-            {
-                iss: FIREBASE_SERVICE_ACCOUNT_EMAIL,
-                sub: FIREBASE_SERVICE_ACCOUNT_EMAIL,
-                aud: FIREBASE_REST_API_URL,
-                iat: now,
-                exp: expiry,
-                uid: uid,
-            },
-            CACHED_FIREBASE_KEY
-        );
-        return { token: assertionToken };
-    } catch (error) {
-        console.error("Token creation error:", error);
-        return { error: `Token gen failed: ${error.message}` };
-    }
-}
 
 // --- Firestore REST API Helpers ---
 async function getGoogleAccessToken(): Promise<string> {
@@ -344,12 +319,7 @@ async function handler(req: Request): Promise<Response> {
             await updateFirestoreDoc("users", telegramUserId, updatePayload);
             const userDoc = await getFirestoreDoc("users", telegramUserId);
 
-            // 4. Generate Custom Token
-            const tokenResult = await createFirebaseCustomToken(telegramUserId);
-            if (tokenResult.error) throw new Error(tokenResult.error);
-
             return new Response(JSON.stringify({
-                customToken: tokenResult.token,
                 user: userDoc
             }), {
                 status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
