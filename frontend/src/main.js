@@ -135,11 +135,15 @@ const UI = {
 };
 
 // Helpers
-function formatBytes(bytes, decimals = 1) {
-  if (!+bytes) return '0 B';
+// Helpers
+function formatBytes(bytes, decimals = 2) { // Increased decimals for precision
+  if (bytes === 0) return '0 B';
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  // Handle case where bytes < 1024 (index 0)
+  if (bytes < k) return bytes + ' ' + sizes[0];
+
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
