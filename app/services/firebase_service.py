@@ -160,12 +160,31 @@ def check_usage_limit(user_id: int, file_size_bytes: int) -> tuple[bool, str]:
         logger.error(f"Limit check failed for {user_id}: {e}")
         return True, "" # Fail open to avoid blocking users on DB errors
 
-def update_paid_allowance(user_id: int, bytes_to_add: int):
-    """Adds paid allowance to user's usage stats."""
+def update_paid_allowance(user_id: int, bytes_to_add: int, payment_info: dict = None):
+    """
+    Adds paid allowance to user's usage stats and logs the transaction.
+    payment_info dict keys: charge_id, amount, currency, stars, gb
+    """
     try:
         db = firestore.client()
-        doc_ref = db.collection('users').document(str(user_id))
-        doc_ref.update({"usage.paid_allowance": firestore.Increment(bytes_to_add)})
-        logger.info(f"Added {bytes_to_add} bytes allowance to user {user_id}")
+        user_ref = db.collection('users').document(str(user_id))
+        
+        # 1. Update Allowance
+        user_ref.update({"usage.paid_allowance": firestore.Increment(bytes_to_add)})
+        
+        # 2. Log Transaction if info provided
+        if payment_info:
+            txn_ref = user_ref.collection('transactions').document(payment_info.get('charge_id', 'unknown'))
+            txn_ref.set({
+                'charge_id': payment_info.get('charge_id'),
+                'amount': payment_info.get('amount'),
+                'currency': payment_info.get('currency'),
+                'stars': payment_info.get('stars'),
+                'gb': payment_info.get('gb'),
+                'bytes_added': bytes_to_add,
+                'timestamp': firestore.SERVER_TIMESTAMP
+            })
+            
+        logger.info(f"Added {bytes_to_add} bytes allowance to user {user_id}. Txn logged: {bool(payment_info)}")
     except Exception as e:
         logger.error(f"Failed to update paid allowance for {user_id}: {e}")
