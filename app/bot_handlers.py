@@ -180,7 +180,7 @@ async def process_update(bot: Bot, update: Update):
 
             await bot.send_message(
                 chat_id=update.message.chat_id,
-                text=f"✨ **Purchase Confirmed!**\n\nAdded **{readable_amount}** of lifetime upload allowance to your account.\n\nThank you for supporting DriveIt! 🚀\n\nRef: `{payment.telegram_payment_charge_id}`",
+                text=f"✨ **Purchase Confirmed!**\n\nAdded **{readable_amount}** of lifetime upload allowance to your account.\n\nThank you for supporting DriveIt! 🚀",
                 parse_mode=ParseMode.MARKDOWN
             )
         except Exception as e:
