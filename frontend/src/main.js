@@ -221,7 +221,9 @@ if (!tg || !tg.initDataUnsafe?.user) {
   if (UI.slider) {
     const updateSliderUI = () => {
       const stars = parseInt(UI.slider.value);
-      const gb = Math.pow(stars / 250, 2) * 5;
+      // Linear scale: 1 Star = 0.02 GB (20MB)
+      // 250 Stars = 5.00 GB
+      const gb = stars * 0.02;
       UI.displayStars.textContent = stars;
       UI.displayGB.textContent = (gb < 0.1 ? gb.toFixed(3) : gb.toFixed(2)) + ' GB';
     };
@@ -231,7 +233,7 @@ if (!tg || !tg.initDataUnsafe?.user) {
 
     UI.btnPurchase.onclick = async () => {
       const stars = parseInt(UI.slider.value);
-      const gb = Math.pow(stars / 250, 2) * 5;
+      const gb = stars * 0.02;
       try {
         UI.btnPurchase.disabled = true;
         const originalText = UI.btnPurchase.textContent;
