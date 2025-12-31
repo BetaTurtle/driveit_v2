@@ -329,19 +329,33 @@ async function handler(req: Request): Promise<Response> {
         // --- CREATE INVOICE ---
         if (url.pathname === "/create-invoice") {
             let stars: number;
-            let gb: number;
 
             if (body.stars) {
                 stars = parseInt(body.stars);
-                gb = parseFloat(body.gb);
             } else {
-                // Fallback for old client versions
-                gb = parseInt(body.gb) || 5;
-                stars = gb * 50;
+                // Fallback
+                const gb_req = parseFloat(body.gb) || 5;
+                stars = Math.ceil(gb_req / 0.02);
             }
 
-            const title = `${gb.toFixed(2)} GB Lifetime Top-up`;
-            const description = `Add ${gb.toFixed(2)} GB to your lifetime upload allowance for DriveIt.`;
+            // Calculation Logic (matches Frontend)
+            // 1 Star = 20 MB (20 * 1024 * 1024 bytes)
+            const bytes = stars * 20 * 1024 * 1024;
+            // GB value for storage/logs (base 1024)
+            const gb_val = bytes / (1024 * 1024 * 1024);
+
+            // Format Logic (matches Frontend formatBytes)
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            let formattedTitle = "0 B";
+
+            if (bytes > 0) {
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                formattedTitle = parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            const title = `${formattedTitle} Lifetime Top-up`;
+            const description = `Add ${formattedTitle} to your lifetime upload allowance for DriveIt.`;
 
             const resp = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/createInvoiceLink`, {
                 method: "POST",
@@ -349,7 +363,7 @@ async function handler(req: Request): Promise<Response> {
                 body: JSON.stringify({
                     title: title,
                     description: description,
-                    payload: JSON.stringify({ user_id: telegramUserId, gb: gb }),
+                    payload: JSON.stringify({ user_id: telegramUserId, gb: gb_val }), // Use precise GB value
                     provider_token: "", // Empty for Stars
                     currency: "XTR",
                     prices: [{ label: title, amount: stars }]
