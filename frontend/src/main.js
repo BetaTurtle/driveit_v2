@@ -77,7 +77,16 @@ const UI = {
     container.style.display = 'block';
 
     const FREE_LIMIT_BYTES = 100 * 1024 * 1024; // 100 MB
-    const dailyBytes = usage?.daily?.bytes || 0;
+
+    // Check reset date (YYYY-MM-DD UTC)
+    let dailyBytes = usage?.daily?.bytes || 0;
+    if (usage?.daily?.date) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (usage.daily.date !== todayStr) {
+        dailyBytes = 0;
+      }
+    }
+
     const paidAllowance = usage?.paid_allowance || 0;
 
     // Update Progress Bar
