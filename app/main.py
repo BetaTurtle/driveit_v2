@@ -9,6 +9,8 @@ from app.services.firebase_service import init_firebase
 from app.bot_handlers import process_update
 from app.services.sheet_service import SheetContext
 
+from telegram.request import HTTPXRequest
+
 async def main():
     """Run the bot."""
     init_firebase()
@@ -23,9 +25,13 @@ async def main():
     
     # Initialize Sheet Context
     sheet_context = SheetContext()
+    
+    # Robust request configuration for CI/CD environments
+    request = HTTPXRequest(connection_pool_size=8, connect_timeout=30.0, read_timeout=30.0)
 
     try:
-        async with Bot(TELEGRAM_BOT_TOKEN) as bot:
+        # Retry loop for initial connection
+        async with Bot(TELEGRAM_BOT_TOKEN, request=request) as bot:
             logger.info("Listening for new messages...")
             background_tasks = set()
             
