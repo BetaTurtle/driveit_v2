@@ -229,11 +229,12 @@ body {
 }
 
 .stat-item {
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(127, 127, 127, 0.1);
   padding: 10px;
   border-radius: 8px;
   font-size: 13px;
   text-align: center;
+  border: 1px solid rgba(127, 127, 127, 0.15);
 }
 
 .stat-label {
