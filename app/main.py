@@ -11,6 +11,8 @@ from app.services.sheet_service import SheetContext
 
 from telegram.request import HTTPXRequest
 
+import signal
+
 async def main():
     """Run the bot."""
     init_firebase()
@@ -29,41 +31,49 @@ async def main():
     # Robust request configuration for CI/CD environments
     request = HTTPXRequest(connection_pool_size=8, connect_timeout=30.0, read_timeout=30.0)
 
+    # Signal Handling for Graceful Shutdown (GitHub Actions sends SIGTERM)
+    loop = asyncio.get_running_loop()
+    stop_event = asyncio.Event()
+
+    def handle_sigterm():
+        logger.info("Received SIGTERM. Initiating graceful shutdown...")
+        stop_event.set()
+
+    loop.add_signal_handler(signal.SIGTERM, handle_sigterm)
+
     try:
         # Retry loop for initial connection
         async with Bot(TELEGRAM_BOT_TOKEN, request=request) as bot:
             logger.info("Listening for new messages...")
             background_tasks = set()
             
-            while True:
+            while not stop_event.is_set():
                 # Check lifespan
                 if time.time() - start_time > LIFESPAN:
-                    logger.info("Lifespan reached. Waiting for pending tasks...")
-                    if background_tasks:
-                         await asyncio.gather(*background_tasks, return_exceptions=True)
-                    
-                    # Flush pending sheet updates
-                    logger.info("Flushing pending sheet updates...")
-                    await sheet_context.flush(blocking=True)
-
-                    logger.info("All tasks finished. Exiting...")
-                    
-                    # Final Ack
-                    if update_id is not None:
-                        try:
-                            await bot.get_updates(offset=update_id, timeout=0, limit=1)
-                            logger.info(f"Successfully acked updates up to {update_id}")
-                        except Exception as e:
-                            logger.error(f"Failed to perform final ack: {e}")
-                    
+                    logger.info("Lifespan reached. Initiating shutdown...")
                     break
-
+                
                 try:
-                    updates = await bot.get_updates(
+                    # Use a short timeout for get_updates to check stop_event frequently
+                    # Or better: use wait_for with the stop_event
+                    get_updates_task = asyncio.create_task(bot.get_updates(
                         offset=update_id, 
                         timeout=10, 
                         allowed_updates=Update.ALL_TYPES
+                    ))
+                    
+                    done, pending = await asyncio.wait(
+                        [get_updates_task, stop_event.wait()], 
+                        return_when=asyncio.FIRST_COMPLETED
                     )
+
+                    if stop_event.is_set():
+                        # If stopped, cancel the pending get_updates
+                        get_updates_task.cancel()
+                        break
+                    
+                    # If we got updates
+                    updates = await get_updates_task
                     
                     for update in updates:
                         update_id = update.update_id + 1
@@ -85,13 +95,31 @@ async def main():
                 except Exception as e:
                     logger.error(f"Unexpected error: {e}")
                     await asyncio.sleep(5)
+            
+            # --- SHUTDOWN SEQUENCE ---
+            logger.info("Waiting for pending tasks...")
+            if background_tasks:
+                 # Wait for all background tasks to complete
+                 await asyncio.gather(*background_tasks, return_exceptions=True)
+            
+            # Flush pending sheet updates
+            logger.info("Flushing pending sheet updates...")
+            await sheet_context.flush(blocking=True)
+
+            logger.info("All tasks finished. Exiting...")
+            
+            # Final Ack
+            if update_id is not None:
+                try:
+                    await bot.get_updates(offset=update_id, timeout=0, limit=1)
+                    logger.info(f"Successfully acked updates up to {update_id}")
+                except Exception as e:
+                    logger.error(f"Failed to perform final ack: {e}")
+
     except asyncio.CancelledError:
-        logger.info("Main task cancelled. Shutting down...")
-        # Optional: flush if cancelled?
-        # await sheet_context.flush() 
+        logger.info("Main task cancelled.")
         raise
     finally:
-        # Stop the executor
         sheet_context.shutdown()
 
 if __name__ == "__main__":
