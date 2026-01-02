@@ -1,4 +1,5 @@
 import { CONFIG } from './config';
+import './firebase';
 
 // UI Controller
 const UI = {
